@@ -39,3 +39,54 @@ module "dynamodb_audiencias" {
   // Reutilizamos la misma clave KMS que el bucket de adjuntos
   kms_key_arn = module.s3_adjuntos.kms_key_arn
 }
+
+// Lambda - Audiencias (CRUD)
+module "lambda_audiencias" {
+  source = "../../modules/lambda-audiencias"
+
+  function_name = "${var.resource_prefix}-lambda-audiencias"
+  source_dir    = "${path.root}/../../../lambda/audiencias"
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+
+  dynamodb_table_name = module.dynamodb_audiencias.table_name
+  dynamodb_table_arn  = module.dynamodb_audiencias.table_arn
+
+  s3_bucket_name = module.s3_adjuntos.bucket_name
+  s3_bucket_arn  = module.s3_adjuntos.bucket_arn
+}
+
+// Lambda - Reportes
+module "lambda_reportes" {
+  source = "../../modules/lambda-reportes"
+
+  function_name = "${var.resource_prefix}-lambda-reportes"
+  source_dir    = "${path.root}/../../../lambda/reportes"
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+
+  dynamodb_table_name = module.dynamodb_audiencias.table_name
+  dynamodb_table_arn  = module.dynamodb_audiencias.table_arn
+}
+
+// Lambda - Notificaciones
+module "lambda_notificaciones" {
+  source = "../../modules/lambda-notificaciones"
+
+  function_name = "${var.resource_prefix}-lambda-notificaciones"
+  source_dir    = "${path.root}/../../../lambda/notificaciones"
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+}
