@@ -9,24 +9,4 @@ jenkins:
 
 unclassified:
   location:
-    url: "${JENKINS_URL:-http://localhost:8080}"
-
-# -------------------------
-# Plugins instalados automáticamente
-# -------------------------
-plugins:
-  required:
-    - git
-    - pipeline
-    - workflow-aggregator
-    - configuration-as-code
-    - job-dsl
-    - credentials-binding
-    - ssh-agent
-    - aws-credentials
-    - blueocean
-    - cloudbees-folder
-    - matrix-auth
-    - timestamper
-    - ansicolor
-    - ws-cleanup
+    url: "${JENKINS_URL:-http://ec2-98-80-31-68.compute-1.amazonaws.com:8080}"
