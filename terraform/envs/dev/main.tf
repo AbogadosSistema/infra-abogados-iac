@@ -16,11 +16,6 @@ module "vpc" {
   resource_prefix = var.resource_prefix
   aws_region      = var.aws_region
   common_tags     = local.common_tags
-
-  # Opcionales: puedes sobreescribir CIDRs si algún día lo necesitas
-  # vpc_cidr           = "10.0.0.0/16"
-  # private_subnet_cidr = "10.0.1.0/24"
-  # public_subnet_cidr  = "10.0.0.0/24"
 }
 
 // Módulo de S3 para adjuntos + KMS de datos
@@ -41,7 +36,6 @@ module "dynamodb_audiencias" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 
-  // Reutilizamos la misma clave KMS que el bucket de adjuntos
   kms_key_arn = module.s3_adjuntos.kms_key_arn
 }
 
@@ -100,16 +94,15 @@ module "lambda_notificaciones" {
 module "jenkins_ec2" {
   source = "../../modules/jenkins-ec2"
 
-  resource_prefix  = var.resource_prefix
-  env              = var.env
-  vpc_id           = module.vpc.vpc_id
-  public_subnet_id = module.vpc.public_subnet_id
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  vpc_id    = module.vpc.vpc_id
+  subnet_id = module.vpc.public_subnet_id
 
   instance_type = "t3.small"
-
-  allowed_cidrs = ["0.0.0.0/0"]
-
-  key_name = null
-
-  common_tags = local.common_tags
+  key_name      = "ia-law-dev-jenkins-key"
 }

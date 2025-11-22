@@ -9,7 +9,13 @@ output "private_subnet_ids" {
   value       = [aws_subnet.private_a.id]
 }
 
-# Outputs más específicos para wiring con otros módulos
+# NUEVO: lista de subredes públicas, para usar como public_subnet_ids[0]
+output "public_subnet_ids" {
+  description = "Lista de subredes públicas (por ejemplo, para Jenkins EC2)"
+  value       = [aws_subnet.public_a.id]
+}
+
+# Outputs más específicos por comodidad, si los quieres usar en otros módulos
 output "private_subnet_id" {
   description = "ID de la subred privada principal"
   value       = aws_subnet.private_a.id

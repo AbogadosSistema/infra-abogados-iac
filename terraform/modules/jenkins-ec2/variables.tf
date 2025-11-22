@@ -1,36 +1,46 @@
-variable "resource_prefix" {
-  type = string
+variable "project_name" {
+  type        = string
+  description = "Nombre del proyecto"
 }
 
 variable "env" {
-  type = string
+  type        = string
+  description = "Entorno (dev, prod, etc.)"
+}
+
+variable "resource_prefix" {
+  type        = string
+  description = "Prefijo para recursos, ej: ia-law-dev"
+}
+
+variable "aws_region" {
+  type        = string
+  description = "Región AWS"
 }
 
 variable "vpc_id" {
-  type = string
+  type        = string
+  description = "ID de la VPC donde vive Jenkins"
 }
 
-variable "public_subnet_id" {
-  type = string
+variable "subnet_id" {
+  type        = string
+  description = "Subred (pública o con salida a Internet) donde se lanza la instancia de Jenkins"
 }
 
 variable "instance_type" {
-  type    = string
-  default = "t3.small"
-}
-
-variable "allowed_cidrs" {
-  description = "CIDRs que pueden acceder al puerto 8080 de Jenkins"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
+  type        = string
+  description = "Tipo de instancia EC2 para Jenkins"
+  default     = "t3.small"
 }
 
 variable "key_name" {
-  description = "Nombre del key pair para SSH (opcional). Dejar null si no usarás SSH."
   type        = string
-  default     = null
+  description = "Nombre del par de claves EC2 para acceso SSH"
 }
 
 variable "common_tags" {
-  type = map(string)
+  type        = map(string)
+  description = "Tags comunes"
+  default     = {}
 }
