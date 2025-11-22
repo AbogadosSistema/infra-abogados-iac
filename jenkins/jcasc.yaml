@@ -9,7 +9,7 @@ jenkins:
 
 unclassified:
   location:
-    url: "${JENKINS_URL:-http://ec2-3-89-86-180.compute-1.amazonaws.com:8080}"
+    url: "${JENKINS_URL:-http://localhost:8080}"
 
 # -------------------------
 # Plugins instalados automáticamente

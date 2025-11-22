@@ -102,3 +102,19 @@ resource "aws_instance" "jenkins" {
     }
   )
 }
+
+########################################
+# Elastic IP para Jenkins
+########################################
+
+resource "aws_eip" "jenkins_eip" {
+  instance = aws_instance.jenkins.id
+  domain   = "vpc"
+
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.resource_prefix}-jenkins-eip"
+    }
+  )
+}
