@@ -100,16 +100,15 @@ module "lambda_notificaciones" {
 module "jenkins_ec2" {
   source = "../../modules/jenkins-ec2"
 
-  resource_prefix  = var.resource_prefix
-  env              = var.env
-  vpc_id           = module.vpc.vpc_id
-  public_subnet_id = module.vpc.public_subnet_id
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  vpc_id    = module.vpc.vpc_id
+  subnet_id = module.vpc.public_subnet_ids[0]
 
   instance_type = "t3.small"
-
-  allowed_cidrs = ["0.0.0.0/0"]
-
-  key_name = null
-
-  common_tags = local.common_tags
+  key_name      = "ia-law-dev-jenkins-key"
 }

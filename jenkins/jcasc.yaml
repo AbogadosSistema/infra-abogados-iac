@@ -1,0 +1,32 @@
+jenkins:
+  systemMessage: >
+    Jenkins de infra-abogados-iac (entorno ${ENVIRONMENT:-dev}).
+    Configurado vía Jenkins Configuration as Code (jcasc.yaml en GitHub).
+
+  numExecutors: 2
+  mode: NORMAL
+  labelString: "master terraform"
+
+unclassified:
+  location:
+    url: "${JENKINS_URL:-http://ec2-3-89-86-180.compute-1.amazonaws.com:8080}"
+
+# -------------------------
+# Plugins instalados automáticamente
+# -------------------------
+plugins:
+  required:
+    - git
+    - pipeline
+    - workflow-aggregator
+    - configuration-as-code
+    - job-dsl
+    - credentials-binding
+    - ssh-agent
+    - aws-credentials
+    - blueocean
+    - cloudbees-folder
+    - matrix-auth
+    - timestamper
+    - ansicolor
+    - ws-cleanup
