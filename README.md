@@ -32,3 +32,26 @@ Diseñar y desplegar en AWS la arquitectura mostrada en el diagrama oficial del 
 - `lambda/` – código fuente de funciones Lambda (MVP sencillo).
 - `frontend/` – artefactos del frontend estático (si se agrega).
 
+## Perfil AWS para Terraform
+
+Para ejecutar Terraform y el pipeline de Jenkins se utiliza un perfil de AWS CLI local:
+
+- Nombre del perfil: `infra-abogados-dev`
+- Región: `us-east-1`
+
+Ejemplo de archivos de configuración (en `~/.aws`):
+
+**credentials**
+
+```ini
+[infra-abogados-dev]
+aws_access_key_id = <ACCESS_KEY_ID>
+aws_secret_access_key = <SECRET_ACCESS_KEY>
+
+
+**config**
+
+```ini
+[profile infra-abogados-dev]
+region = us-east-1
+output = json
