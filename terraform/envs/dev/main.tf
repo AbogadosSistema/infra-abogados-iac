@@ -7,7 +7,7 @@ locals {
   }
 }
 
-// Módulo de red: VPC + subred privada
+// Módulo de red: VPC + subred privada y pública
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -16,6 +16,11 @@ module "vpc" {
   resource_prefix = var.resource_prefix
   aws_region      = var.aws_region
   common_tags     = local.common_tags
+
+  # Opcionales: puedes sobreescribir CIDRs si algún día lo necesitas
+  # vpc_cidr           = "10.0.0.0/16"
+  # private_subnet_cidr = "10.0.1.0/24"
+  # public_subnet_cidr  = "10.0.0.0/24"
 }
 
 // Módulo de S3 para adjuntos + KMS de datos
@@ -89,4 +94,22 @@ module "lambda_notificaciones" {
   env             = var.env
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
+}
+
+// Jenkins EC2
+module "jenkins_ec2" {
+  source = "../../modules/jenkins-ec2"
+
+  resource_prefix  = var.resource_prefix
+  env              = var.env
+  vpc_id           = module.vpc.vpc_id
+  public_subnet_id = module.vpc.public_subnet_id
+
+  instance_type = "t3.small"
+
+  allowed_cidrs = ["0.0.0.0/0"]
+
+  key_name = null
+
+  common_tags = local.common_tags
 }

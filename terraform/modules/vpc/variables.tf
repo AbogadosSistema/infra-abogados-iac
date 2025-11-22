@@ -23,3 +23,21 @@ variable "common_tags" {
   description = "Tags comunes para todos los recursos"
   default     = {}
 }
+
+variable "vpc_cidr" {
+  type        = string
+  description = "CIDR de la VPC"
+  default     = "10.0.0.0/16"
+}
+
+variable "private_subnet_cidr" {
+  type        = string
+  description = "CIDR de la subred privada"
+  default     = "10.0.1.0/24"
+}
+
+variable "public_subnet_cidr" {
+  type        = string
+  description = "CIDR de la subred pública"
+  default     = "10.0.0.0/24"
+}
