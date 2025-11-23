@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Primer argumento: entorno (dev, prod, etc.). Por defecto dev.
 ENVIRONMENT="${1:-dev}"
-ACTION="${2:-plan}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_DIR="${ROOT_DIR}/terraform/envs/${ENVIRONMENT}"
@@ -18,13 +18,7 @@ terraform init -input=false
 echo "==== terraform validate ===="
 terraform validate
 
-if [[ "${ACTION}" == "plan" ]]; then
-  echo "==== terraform plan ===="
-  terraform plan -input=false
-elif [[ "${ACTION}" == "apply" ]]; then
-  echo "==== terraform apply ===="
-  terraform apply -input=false -auto-approve
-else
-  echo "Acción desconocida: ${ACTION}"
-  exit 1
-fi
+echo "==== terraform plan ===="
+terraform plan -input=false -out=tfplan
+
+echo "Terraform plan finalizado correctamente."
