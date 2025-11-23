@@ -69,34 +69,73 @@ resource "aws_instance" "jenkins" {
   vpc_security_group_ids = [aws_security_group.jenkins_sg.id]
   key_name               = var.key_name
 
-  # Script de instalación de Jenkins (con Java 17)
-  # Script de instalación de Jenkins (con Java 17)
-  user_data = <<-EOF
+  # Script de instalación de Jenkins (con Java 17, AWS CLI y Checkov)
+   user_data = <<-EOF
               #!/bin/bash
               set -xe
 
+              # -----------------------
               # Actualizar paquetes base
+              # -----------------------
               yum update -y
 
-              # Instalar AWS CLI para que Jenkins pueda hablar con AWS
+              # -----------------------
+              # AWS CLI (para hablar con AWS)
+              # -----------------------
               yum install -y awscli
 
-              # Instalar Java 17 (requerido por Jenkins moderno)
+              # -----------------------
+              # Python 3.8 + pip (para Checkov)
+              # Amazon Linux 2 usa amazon-linux-extras para python3.8
+              # -----------------------
+              if ! command -v python3.8 >/dev/null 2>&1; then
+                amazon-linux-extras enable python3.8
+                yum clean metadata
+                yum install -y python3.8
+              fi
+
+              # Asegurar pip para python3.8
+              python3.8 -m ensurepip --upgrade || true
+              python3.8 -m pip install --upgrade pip
+
+              # -----------------------
+              # Instalar Checkov
+              # Fijamos versión <3.0.0 para evitar problemas con dependencias nuevas
+              # -----------------------
+              python3.8 -m pip install "checkov<3.0.0"
+
+              # Poner checkov en el PATH global si no está
+              if ! command -v checkov >/dev/null 2>&1; then
+                CHECKOV_BIN="$(python3.8 -m site --user-base)/bin/checkov"
+                if [ -f "$CHECKOV_BIN" ] && [ ! -f /usr/local/bin/checkov ]; then
+                  ln -s "$CHECKOV_BIN" /usr/local/bin/checkov
+                fi
+              fi
+
+              # -----------------------
+              # Java 17 (requerido por Jenkins moderno)
+              # -----------------------
               yum install -y java-17-amazon-corretto-headless
 
-              # Configurar repositorio de Jenkins
+              # -----------------------
+              # Repositorio de Jenkins
+              # -----------------------
               wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
               rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
-              # Instalar Jenkins y Git
+              # -----------------------
+              # Jenkins + Git
+              # -----------------------
               yum install -y jenkins git
 
+              # -----------------------
               # Habilitar y arrancar Jenkins
+              # -----------------------
               systemctl daemon-reload
               systemctl enable jenkins
               systemctl start jenkins
               EOF
-
+              
   user_data_replace_on_change = true
 
   tags = merge(
