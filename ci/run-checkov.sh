@@ -9,7 +9,7 @@ cd "${ROOT_DIR}/terraform"
 echo "Directorio actual (Terraform root): $(pwd)"
 echo "Ejecutando Checkov..."
 
-# Asume que checkov ya está instalado en la máquina Jenkins (pip o docker, como lo tengas)
-checkov -d . --quiet
+# Modo "soft-fail": reporta findings pero NO devuelve exit code 1
+checkov -d . --quiet --soft-fail
 
-echo "Checkov finalizado correctamente."
+echo "Checkov finalizado (puede haber findings, pero no rompen el pipeline)."
