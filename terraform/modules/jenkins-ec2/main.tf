@@ -85,6 +85,19 @@ resource "aws_instance" "jenkins" {
               yum install -y awscli
 
               # -----------------------
+              # Terraform (para pipelines de IaC)
+              # -----------------------
+              yum install -y yum-utils
+
+              yum-config-manager --add-repo \
+                https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+
+              yum install -y terraform
+
+              # Log de versión para depuración
+              terraform -version || true
+
+              # -----------------------
               # Python 3.8 + pip (para Checkov)
               # Amazon Linux 2 usa amazon-linux-extras para python3.8
               # -----------------------
@@ -135,7 +148,8 @@ resource "aws_instance" "jenkins" {
               systemctl enable jenkins
               systemctl start jenkins
               EOF
-              
+
+
   user_data_replace_on_change = true
 
   tags = merge(
