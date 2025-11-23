@@ -10,3 +10,23 @@ jenkins:
 unclassified:
   location:
     url: "${JENKINS_URL:-http://ec2-98-80-31-68.compute-1.amazonaws.com:8080}"
+
+# -------------------------
+# Definición de agente terraform
+# -------------------------
+nodes:
+  - permanent:
+      name: "terraform-agent"
+      remoteFS: "/var/jenkins_terraform"
+      numExecutors: 2
+      labelString: "terraform"
+      mode: NORMAL
+      retentionStrategy: "always"
+      launcher:
+        ssh:
+          host: "localhost"
+          port: 22
+          credentialsId: "ssh-jenkins-ec2"
+          launchTimeoutSeconds: 60
+          maxNumRetries: 5
+          retryWaitTime: 15
