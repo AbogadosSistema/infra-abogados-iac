@@ -21,9 +21,9 @@ jenkins:
           always: {}
         launcher:
           ssh:
-            host: "localhost"          # La propia EC2
+            host: "localhost"          
             port: 22
-            credentialsId: "ssh-jenkins-ec2"   # ID de la credencial SSH que creaste
+            credentialsId: "ssh-jenkins-ec2"
             sshHostKeyVerificationStrategy:
               nonVerifyingKeyVerificationStrategy: {}
 

@@ -70,12 +70,16 @@ resource "aws_instance" "jenkins" {
   key_name               = var.key_name
 
   # Script de instalación de Jenkins (con Java 17)
+  # Script de instalación de Jenkins (con Java 17)
   user_data = <<-EOF
               #!/bin/bash
               set -xe
 
               # Actualizar paquetes base
               yum update -y
+
+              # Instalar AWS CLI para que Jenkins pueda hablar con AWS
+              yum install -y awscli
 
               # Instalar Java 17 (requerido por Jenkins moderno)
               yum install -y java-17-amazon-corretto-headless
