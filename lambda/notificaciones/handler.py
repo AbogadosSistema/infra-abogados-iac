@@ -1,3 +1,4 @@
+# lambda/notificaciones/handler.py
 import json
 
 def lambda_handler(event, context):

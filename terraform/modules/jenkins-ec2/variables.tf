@@ -1,3 +1,4 @@
+# terraform/modules/jenkins-ec2/variables.tf
 variable "project_name" {
   type        = string
   description = "Nombre del proyecto"

@@ -1,3 +1,4 @@
+# terraform/modules/s3-adjuntos/main.tf
 // Clave KMS dedicada a datos (S3 + DynamoDB)
 resource "aws_kms_key" "data" {
   description         = "${var.project_name}-${var.env} data key"

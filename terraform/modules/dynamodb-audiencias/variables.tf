@@ -1,3 +1,4 @@
+# terraform/modules/dynamodb-audiencias/variables.tf
 variable "table_name" {
   description = "Nombre de la tabla de audiencias"
   type        = string

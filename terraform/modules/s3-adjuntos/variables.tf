@@ -1,3 +1,4 @@
+# terraform/modules/s3-adjuntos/variables.tf
 variable "project_name" {
   description = "Nombre del proyecto"
   type        = string

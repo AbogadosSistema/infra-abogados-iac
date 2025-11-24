@@ -1,3 +1,4 @@
+# terraform/modules/vpc/main.tf
 // Zonas de disponibilidad disponibles en la región
 data "aws_availability_zones" "available" {
   state = "available"

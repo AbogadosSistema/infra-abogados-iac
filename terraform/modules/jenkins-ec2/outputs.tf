@@ -1,3 +1,4 @@
+# terraform/modules/jenkins-ec2/outputs.tf
 output "jenkins_public_ip" {
   description = "IP pública de la instancia Jenkins"
   value       = aws_instance.jenkins.public_ip
