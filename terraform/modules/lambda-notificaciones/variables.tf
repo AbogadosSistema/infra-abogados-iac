@@ -1,3 +1,4 @@
+# terraform/modules/lambda-notificaciones/variables.tf
 variable "function_name" {
   type        = string
   description = "Nombre de la función Lambda"

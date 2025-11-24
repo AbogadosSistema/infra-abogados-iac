@@ -1,3 +1,4 @@
+# terraform/modules/lambda-notificaciones/outputs.tf
 output "function_name" {
   value       = aws_lambda_function.this.function_name
   description = "Nombre de la función Lambda de notificaciones"

@@ -1,3 +1,4 @@
+# terraform/modules/s3-adjuntos/outputs.tf
 output "bucket_name" {
   description = "Nombre del bucket de adjuntos"
   value       = aws_s3_bucket.adjuntos.bucket

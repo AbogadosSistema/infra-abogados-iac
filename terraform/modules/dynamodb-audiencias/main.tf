@@ -1,3 +1,4 @@
+# terraform/modules/dynamodb-audiencias/main.tf
 resource "aws_dynamodb_table" "audiencias" {
   name         = var.table_name
   billing_mode = "PAY_PER_REQUEST"
