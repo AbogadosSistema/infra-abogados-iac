@@ -28,6 +28,7 @@ module "s3_adjuntos" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 }
+
 // Módulo de S3 para frontend estático
 module "s3_frontend" {
   source = "../../modules/s3-frontend"
@@ -37,6 +38,7 @@ module "s3_frontend" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 }
+
 // Módulo de DynamoDB para audiencias
 module "dynamodb_audiencias" {
   source = "../../modules/dynamodb-audiencias"
@@ -85,6 +87,21 @@ module "lambda_reportes" {
   dynamodb_table_arn  = module.dynamodb_audiencias.table_arn
 }
 
+# ============================
+# SNS + SES para notificaciones
+# ============================
+module "sns_ses_notificaciones" {
+  source = "../../modules/sns-ses-notificaciones"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  ses_sender_email = var.ses_sender_email
+}
+
 // Lambda - Notificaciones
 module "lambda_notificaciones" {
   source = "../../modules/lambda-notificaciones"
@@ -97,6 +114,9 @@ module "lambda_notificaciones" {
   env             = var.env
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
+
+  # NUEVO: topic SNS donde publicará los recordatorios
+  sns_topic_arn = module.sns_ses_notificaciones.sns_topic_arn
 }
 
 // Jenkins EC2
@@ -115,6 +135,7 @@ module "jenkins_ec2" {
   instance_type = "t3.small"
   key_name      = "ia-law-dev-jenkins-key"
 }
+
 # ============================
 # Cognito (Auth de usuarios)
 # ============================
@@ -157,6 +178,6 @@ module "waf_api" {
   env             = var.env
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
-  
+
   scope = "REGIONAL"
 }
