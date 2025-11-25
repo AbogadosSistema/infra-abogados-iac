@@ -1,3 +1,4 @@
+# terraform/envs/dev/main.tf
 // Tags comunes para todos los recursos del entorno dev
 locals {
   common_tags = {
@@ -27,7 +28,15 @@ module "s3_adjuntos" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 }
+// Módulo de S3 para frontend estático
+module "s3_frontend" {
+  source = "../../modules/s3-frontend"
 
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+}
 // Módulo de DynamoDB para audiencias
 module "dynamodb_audiencias" {
   source = "../../modules/dynamodb-audiencias"
