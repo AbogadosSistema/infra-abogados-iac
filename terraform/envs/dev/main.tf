@@ -115,3 +115,48 @@ module "jenkins_ec2" {
   instance_type = "t3.small"
   key_name      = "ia-law-dev-jenkins-key"
 }
+# ============================
+# Cognito (Auth de usuarios)
+# ============================
+module "cognito" {
+  source = "../../modules/cognito"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+}
+
+# ============================
+# API Gateway HTTP + JWT
+# ============================
+module "api_gateway" {
+  source = "../../modules/api-gateway"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  audiencias_lambda_arn = module.lambda_audiencias.lambda_arn
+  reportes_lambda_arn   = module.lambda_reportes.lambda_arn
+
+  cognito_user_pool_id  = module.cognito.user_pool_id
+  cognito_app_client_id = module.cognito.app_client_id
+}
+
+# ============================
+# WAF para la API (scope REGIONAL)
+# ============================
+module "waf_api" {
+  source = "../../modules/waf"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+  
+  scope = "REGIONAL"
+}
