@@ -150,7 +150,6 @@ resource "aws_instance" "jenkins" {
               systemctl start jenkins
               EOF
 
-
   user_data_replace_on_change = true
 
   tags = merge(
