@@ -1,10 +1,12 @@
 # terraform/modules/lambda-notificaciones/main.tf
+
 data "archive_file" "lambda_zip" {
   type        = "zip"
   source_dir  = var.source_dir
   output_path = "${path.module}/lambda.zip"
 }
 
+# Rol básico de ejecución de Lambda
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
@@ -35,7 +37,24 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-// Más adelante agregaremos permisos de SNS
+# Permiso para publicar en el topic SNS de notificaciones
+data "aws_iam_policy_document" "lambda_policy" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "sns:Publish",
+    ]
+
+    resources = [var.sns_topic_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "this" {
+  name   = "${var.resource_prefix}-${var.function_name}-policy"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.lambda_policy.json
+}
 
 resource "aws_lambda_function" "this" {
   function_name = var.function_name
@@ -48,7 +67,8 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      ENVIRONMENT = var.env
+      ENVIRONMENT   = var.env
+      SNS_TOPIC_ARN = var.sns_topic_arn
     }
   }
 
