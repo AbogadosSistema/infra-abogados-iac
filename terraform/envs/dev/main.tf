@@ -115,7 +115,7 @@ module "lambda_notificaciones" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 
-  # NUEVO: topic SNS donde publicará los recordatorios
+  # topic SNS donde publicará los recordatorios
   sns_topic_arn = module.sns_ses_notificaciones.sns_topic_arn
 }
 
@@ -180,4 +180,24 @@ module "waf_api" {
   common_tags     = local.common_tags
 
   scope = "REGIONAL"
+}
+
+# ============================
+# Observabilidad (CloudWatch + SNS)
+# ============================
+module "observabilidad" {
+  source = "../../modules/observabilidad"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+
+  alarm_email = var.alarm_email
+
+  lambda_function_names = [
+    "${var.resource_prefix}-lambda-audiencias",
+    "${var.resource_prefix}-lambda-reportes",
+    "${var.resource_prefix}-lambda-notificaciones",
+  ]
 }

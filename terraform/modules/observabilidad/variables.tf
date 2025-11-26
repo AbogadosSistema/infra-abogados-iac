@@ -1,4 +1,4 @@
-# terraform/envs/dev/variables.tf
+# terraform/modules/observabilidad/variables.tf
 variable "project_name" {
   description = "Nombre base del proyecto"
   type        = string
@@ -9,19 +9,19 @@ variable "env" {
   type        = string
 }
 
-variable "aws_region" {
-  description = "Región AWS"
-  type        = string
-}
-
 variable "resource_prefix" {
   description = "Prefijo para nombres de recursos (ej: ia-law-dev)"
   type        = string
 }
 
-variable "ses_sender_email" {
-  description = "Email verificado en SES que se usará como remitente"
-  type        = string
+variable "common_tags" {
+  description = "Tags comunes para todos los recursos"
+  type        = map(string)
+}
+
+variable "lambda_function_names" {
+  description = "Lista de nombres de funciones Lambda a monitorear"
+  type        = list(string)
 }
 
 variable "alarm_email" {
