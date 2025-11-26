@@ -28,10 +28,37 @@ resource "aws_cognito_user_pool_client" "app" {
 
   prevent_user_existence_errors = "ENABLED"
 
+  # 👇 Añadimos USER_PASSWORD_AUTH para poder probar login desde CLI
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_PASSWORD_AUTH",
   ]
 
   supported_identity_providers = ["COGNITO"]
+}
+
+# ============================
+# Grupos de roles de aplicación
+# ============================
+
+resource "aws_cognito_user_group" "administrador" {
+  name         = "ADMINISTRADOR"
+  user_pool_id = aws_cognito_user_pool.this.id
+  description  = "Rol de administrador: gestiona todas las audiencias del sistema"
+  precedence   = 1
+}
+
+resource "aws_cognito_user_group" "secretaria" {
+  name         = "SECRETARIA"
+  user_pool_id = aws_cognito_user_pool.this.id
+  description  = "Rol de secretaria: registra y reporta audiencias de abogados asignados"
+  precedence   = 2
+}
+
+resource "aws_cognito_user_group" "abogado" {
+  name         = "ABOGADO"
+  user_pool_id = aws_cognito_user_pool.this.id
+  description  = "Rol de abogado: consulta y reporta sus propias audiencias"
+  precedence   = 3
 }
