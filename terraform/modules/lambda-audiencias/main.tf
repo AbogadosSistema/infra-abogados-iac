@@ -35,7 +35,13 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-// Permisos de DynamoDB + S3
+# NUEVO: permisos para Lambda en VPC (crear ENIs, logs de red, etc.)
+resource "aws_iam_role_policy_attachment" "vpc_execution" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+# Permisos de DynamoDB + S3
 data "aws_iam_policy_document" "lambda_policy" {
   statement {
     effect = "Allow"
@@ -46,7 +52,7 @@ data "aws_iam_policy_document" "lambda_policy" {
       "dynamodb:UpdateItem",
       "dynamodb:DeleteItem",
       "dynamodb:Query",
-      "dynamodb:Scan"
+      "dynamodb:Scan",
     ]
 
     resources = [var.dynamodb_table_arn]
@@ -58,7 +64,7 @@ data "aws_iam_policy_document" "lambda_policy" {
     actions = [
       "s3:GetObject",
       "s3:PutObject",
-      "s3:DeleteObject"
+      "s3:DeleteObject",
     ]
 
     resources = ["${var.s3_bucket_arn}/*"]
@@ -79,6 +85,12 @@ resource "aws_lambda_function" "this" {
 
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  # NUEVO: ejecutar dentro de la VPC (subred privada + SG de Lambdas)
+  vpc_config {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = var.security_group_ids
+  }
 
   environment {
     variables = {

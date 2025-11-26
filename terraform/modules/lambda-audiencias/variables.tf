@@ -54,3 +54,14 @@ variable "s3_bucket_arn" {
   description = "ARN del bucket de adjuntos"
   type        = string
 }
+
+# NUEVO: VPC
+variable "subnet_ids" {
+  description = "Subredes donde se ejecutará la Lambda (VPC)"
+  type        = list(string)
+}
+
+variable "security_group_ids" {
+  description = "Security Groups asociados a la Lambda"
+  type        = list(string)
+}

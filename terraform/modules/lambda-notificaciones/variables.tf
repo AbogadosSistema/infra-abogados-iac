@@ -1,5 +1,4 @@
 # terraform/modules/lambda-notificaciones/variables.tf
-
 variable "function_name" {
   type        = string
   description = "Nombre de la función Lambda de notificaciones"
@@ -38,4 +37,15 @@ variable "common_tags" {
 variable "sns_topic_arn" {
   type        = string
   description = "ARN del topic SNS donde se publican los recordatorios"
+}
+
+# NUEVO: VPC
+variable "subnet_ids" {
+  type        = list(string)
+  description = "Subredes donde se ejecutará la Lambda (VPC)"
+}
+
+variable "security_group_ids" {
+  type        = list(string)
+  description = "Security Groups asociados a la Lambda"
 }
