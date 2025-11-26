@@ -49,7 +49,16 @@ module "dynamodb_audiencias" {
 
   kms_key_arn = module.s3_adjuntos.kms_key_arn
 }
+// Backups de DynamoDB (audiencias) con AWS Backup
+module "backup_audiencias" {
+  source = "../../modules/backup-dynamodb-audiencias"
 
+  project_name       = var.project_name
+  env                = var.env
+  resource_prefix    = var.resource_prefix
+  common_tags        = local.common_tags
+  dynamodb_table_arn = module.dynamodb_audiencias.table_arn
+}
 // Lambda - Audiencias (CRUD)
 module "lambda_audiencias" {
   source = "../../modules/lambda-audiencias"
