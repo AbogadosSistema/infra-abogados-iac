@@ -10,7 +10,7 @@ output "private_subnet_ids" {
   value       = [aws_subnet.private_a.id]
 }
 
-# NUEVO: lista de subredes públicas, para usar como public_subnet_ids[0]
+# Lista de subredes públicas, para usar como public_subnet_ids[0]
 output "public_subnet_ids" {
   description = "Lista de subredes públicas (por ejemplo, para Jenkins EC2)"
   value       = [aws_subnet.public_a.id]
@@ -25,4 +25,10 @@ output "private_subnet_id" {
 output "public_subnet_id" {
   description = "ID de la subred pública (para Jenkins EC2)"
   value       = aws_subnet.public_a.id
+}
+
+# NUEVO: Security Group para Lambdas (para pasarlo a los módulos lambda-*)
+output "lambda_security_group_id" {
+  description = "ID del Security Group usado por las Lambdas en la VPC"
+  value       = aws_security_group.lambda.id
 }
