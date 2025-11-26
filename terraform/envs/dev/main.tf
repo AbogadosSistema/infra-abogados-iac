@@ -68,6 +68,10 @@ module "lambda_audiencias" {
 
   s3_bucket_name = module.s3_adjuntos.bucket_name
   s3_bucket_arn  = module.s3_adjuntos.bucket_arn
+
+  # NUEVO: ejecutar dentro de la VPC (subred privada + SG de Lambdas)
+  subnet_ids         = [module.vpc.private_subnet_id]
+  security_group_ids = [module.vpc.lambda_security_group_id]
 }
 
 // Lambda - Reportes
@@ -85,6 +89,10 @@ module "lambda_reportes" {
 
   dynamodb_table_name = module.dynamodb_audiencias.table_name
   dynamodb_table_arn  = module.dynamodb_audiencias.table_arn
+
+  # NUEVO: VPC
+  subnet_ids         = [module.vpc.private_subnet_id]
+  security_group_ids = [module.vpc.lambda_security_group_id]
 }
 
 # ============================
@@ -117,6 +125,10 @@ module "lambda_notificaciones" {
 
   # topic SNS donde publicará los recordatorios
   sns_topic_arn = module.sns_ses_notificaciones.sns_topic_arn
+
+  # NUEVO: VPC
+  subnet_ids         = [module.vpc.private_subnet_id]
+  security_group_ids = [module.vpc.lambda_security_group_id]
 }
 
 // Jenkins EC2
