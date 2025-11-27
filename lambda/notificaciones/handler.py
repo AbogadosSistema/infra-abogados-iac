@@ -1,5 +1,3 @@
-# lambda/notificaciones/handler.py
-
 import json
 import os
 import ast
@@ -119,8 +117,9 @@ def lambda_handler(event, context):
       "mensaje_extra": "texto opcional"
     }
 
-    Esta Lambda publica un mensaje legible en SNS, para que
-    la suscripción de correo muestre todos los datos.
+    Esta Lambda publica en SNS un JSON estructurado. Otra Lambda
+    (notificaciones_worker) se suscribe al tópico y usa SES para
+    enviar el correo al destinatario.
     """
     print("Evento recibido:", json.dumps(event))
 
@@ -188,7 +187,7 @@ def lambda_handler(event, context):
     abogado_id = body.get("abogado_id")
     mensaje_extra = body.get("mensaje_extra")
 
-    # ---- Construir payload estructurado (para logs / debug) ----
+    # ---- Construir payload estructurado (para SNS / worker) ----
     message_payload = {
         "tipo": tipo,
         "destinatario_email": destinatario_email,
@@ -203,32 +202,11 @@ def lambda_handler(event, context):
         "disparado_en": datetime.utcnow().isoformat() + "Z",
     }
 
-    # ---- Construir mensaje de texto para el correo ----
-    lineas = [
-        f"Tipo: {tipo}",
-        f"ID audiencia: {id_audiencia}",
-        f"Abogado: {abogado_id or '(no especificado)'}",
-        f"Fecha: {fecha}",
-        f"Sala: {sala or '(no especificada)'}",
-        f"Estado: {estado}",
-        f"Destinatario: {destinatario_email}",
-        "",
-        f"Disparado por: {user}",
-        f"Entorno: {ENVIRONMENT}",
-        f"Fecha de envío (UTC): {message_payload['disparado_en']}",
-    ]
-
-    if mensaje_extra:
-        lineas.append("")
-        lineas.append(f"Nota: {mensaje_extra}")
-
-    message_text = "\n".join(lineas)
-
-    # ---- Publicar en SNS ----
+    # ---- Publicar en SNS como JSON ----
     try:
         resp = sns.publish(
             TopicArn=SNS_TOPIC_ARN,
-            Message=message_text,  # lo que verás en el cuerpo del correo
+            Message=json.dumps(message_payload),  # JSON que leerá el worker
             Subject=f"[{ENVIRONMENT}] Recordatorio audiencia {id_audiencia}",
         )
     except Exception as e:
