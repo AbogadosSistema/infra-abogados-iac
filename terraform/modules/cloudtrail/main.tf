@@ -10,18 +10,15 @@ data "aws_caller_identity" "current" {}
 resource "aws_s3_bucket" "cloudtrail" {
   bucket = "${var.resource_prefix}-${var.env}-cloudtrail-logs"
 
+  # NOTA: no usamos aws_s3_bucket_acl porque con ObjectOwnership = BucketOwnerEnforced
+  # el bucket no permite ACLs y daría error AccessControlListNotSupported.
+
   tags = merge(
     var.common_tags,
     {
       Name = "${var.resource_prefix}-${var.env}-cloudtrail-logs"
     }
   )
-}
-
-# ACL privada explícita
-resource "aws_s3_bucket_acl" "cloudtrail" {
-  bucket = aws_s3_bucket.cloudtrail.id
-  acl    = "private"
 }
 
 # Cifrado en reposo (simple, con clave administrada por S3)
@@ -35,7 +32,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
   }
 }
 
-# (Opcional) política de ciclo de vida para no guardar logs eternamente
+# Política de ciclo de vida para no guardar logs eternamente
 resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
   bucket = aws_s3_bucket.cloudtrail.id
 
