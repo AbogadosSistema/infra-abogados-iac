@@ -43,6 +43,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
     id     = "expire-after-365-days"
     status = "Enabled"
 
+    # Filtro obligatorio: aplicamos la regla a todo el bucket
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = var.log_retention_days
     }
