@@ -34,6 +34,13 @@ variable "reportes_lambda_arn" {
   description = "ARN de la Lambda de reportes"
 }
 
+# OPCIONAL: Lambda de notificaciones, para exponer /notificaciones
+variable "notificaciones_lambda_arn" {
+  type        = string
+  description = "ARN de la Lambda de notificaciones (opcional)"
+  default     = ""
+}
+
 variable "cognito_user_pool_id" {
   type        = string
   description = "ID del User Pool de Cognito para JWT"

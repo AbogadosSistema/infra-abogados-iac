@@ -49,6 +49,7 @@ module "dynamodb_audiencias" {
 
   kms_key_arn = module.s3_adjuntos.kms_key_arn
 }
+
 // Backups de DynamoDB (audiencias) con AWS Backup
 module "backup_audiencias" {
   source = "../../modules/backup-dynamodb-audiencias"
@@ -59,6 +60,7 @@ module "backup_audiencias" {
   common_tags        = local.common_tags
   dynamodb_table_arn = module.dynamodb_audiencias.table_arn
 }
+
 // Lambda - Audiencias (CRUD)
 module "lambda_audiencias" {
   source = "../../modules/lambda-audiencias"
@@ -78,7 +80,7 @@ module "lambda_audiencias" {
   s3_bucket_name = module.s3_adjuntos.bucket_name
   s3_bucket_arn  = module.s3_adjuntos.bucket_arn
 
-  # NUEVO: ejecutar dentro de la VPC (subred privada + SG de Lambdas)
+  # VPC (subred privada + SG de Lambdas)
   subnet_ids         = [module.vpc.private_subnet_id]
   security_group_ids = [module.vpc.lambda_security_group_id]
 }
@@ -99,7 +101,7 @@ module "lambda_reportes" {
   dynamodb_table_name = module.dynamodb_audiencias.table_name
   dynamodb_table_arn  = module.dynamodb_audiencias.table_arn
 
-  # NUEVO: VPC
+  # VPC
   subnet_ids         = [module.vpc.private_subnet_id]
   security_group_ids = [module.vpc.lambda_security_group_id]
 }
@@ -135,7 +137,7 @@ module "lambda_notificaciones" {
   # topic SNS donde publicará los recordatorios
   sns_topic_arn = module.sns_ses_notificaciones.sns_topic_arn
 
-  # NUEVO: VPC
+  # VPC
   subnet_ids         = [module.vpc.private_subnet_id]
   security_group_ids = [module.vpc.lambda_security_group_id]
 }
@@ -182,15 +184,16 @@ module "api_gateway" {
   aws_region      = var.aws_region
   common_tags     = local.common_tags
 
-  audiencias_lambda_arn = module.lambda_audiencias.lambda_arn
-  reportes_lambda_arn   = module.lambda_reportes.lambda_arn
+  audiencias_lambda_arn     = module.lambda_audiencias.lambda_arn
+  reportes_lambda_arn       = module.lambda_reportes.lambda_arn
+  notificaciones_lambda_arn = module.lambda_notificaciones.lambda_arn
 
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_app_client_id = module.cognito.app_client_id
 }
 
 # ============================
-# WAF para la API (scope REGIONAL)
+# WAF (definido pero SIN asociar aún a un recurso)
 # ============================
 module "waf_api" {
   source = "../../modules/waf"
@@ -200,7 +203,12 @@ module "waf_api" {
   resource_prefix = var.resource_prefix
   common_tags     = local.common_tags
 
+  # Por ahora solo definimos el Web ACL.
+  # Más adelante, cuando tengamos CloudFront:
+  #   - cambiaremos scope a "CLOUDFRONT"
+  #   - pasaremos resource_arn = <ARN de la distribución CloudFront>
   scope = "REGIONAL"
+  # sin resource_arn -> no se crea aws_wafv2_web_acl_association
 }
 
 # ============================
