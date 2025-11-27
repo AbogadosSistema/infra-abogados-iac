@@ -2,6 +2,7 @@
 
 import json
 import os
+import ast
 from datetime import datetime
 
 import boto3
@@ -11,10 +12,13 @@ sns = boto3.client("sns")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
 
+ALLOWED_CREATOR_GROUPS = {"ADMINISTRADOR", "SECRETARIA"}
+
 
 # =========================
 # Helpers genéricos
 # =========================
+
 
 def _response(status_code: int, body: dict):
     return {
@@ -40,31 +44,49 @@ def _get_claims(event):
     )
 
 
-def _get_groups_from_claims(claims):
+def _normalize_groups(raw):
     """
-    Extrae lista de grupos desde cognito:groups.
+    Normaliza 'cognito:groups' a una lista de strings.
+
     Puede venir como:
-      - lista ["ADMINISTRADOR", ...]
-      - string "ADMINISTRADOR"
-      - string '["ADMINISTRADOR"]'
+      - ["ADMINISTRADOR"]
+      - "ADMINISTRADOR"
+      - "[ADMINISTRADOR]"
+      - '["ADMINISTRADOR"]'
     """
-    raw = claims.get("cognito:groups")
+    if raw is None:
+        return []
 
+    # Ya es lista
     if isinstance(raw, list):
-        return raw
+        return [str(g) for g in raw]
 
+    # String con distintos formatos
     if isinstance(raw, str):
-        # Intentamos parsear si parece JSON de lista
+        txt = raw.strip()
+
+        # Intentar interpretar como literal de Python / JSON
         try:
-            if raw.startswith("["):
-                parsed = json.loads(raw)
-                if isinstance(parsed, list):
-                    return parsed
+            parsed = ast.literal_eval(txt)
+            if isinstance(parsed, list):
+                return [str(g) for g in parsed]
+            if isinstance(parsed, str):
+                return [parsed]
         except Exception:
             pass
-        return [raw]
 
-    return []
+        # Formatos tipo "[ADMINISTRADOR]" o "ADMINISTRADOR,SECRETARIA"
+        txt = txt.strip("[]")
+        parts = [p.strip().strip('"').strip("'") for p in txt.split(",")]
+        return [p for p in parts if p]
+
+    # Cualquier otro tipo raro
+    return [str(raw)]
+
+
+def _get_groups_from_claims(claims):
+    raw = claims.get("cognito:groups")
+    return _normalize_groups(raw)
 
 
 def _get_username_from_claims(claims):
@@ -79,6 +101,7 @@ def _get_username_from_claims(claims):
 # =========================
 # Handler principal
 # =========================
+
 
 def lambda_handler(event, context):
     """
@@ -96,9 +119,8 @@ def lambda_handler(event, context):
       "mensaje_extra": "texto opcional"
     }
 
-    Esta Lambda NO envía el correo directamente: solo publica
-    un mensaje estructurado en SNS. Un worker suscrito al topic
-    (otra Lambda) se encarga de hablar con SES.
+    Esta Lambda publica un mensaje legible en SNS, para que
+    la suscripción de correo muestre todos los datos.
     """
     print("Evento recibido:", json.dumps(event))
 
@@ -113,8 +135,10 @@ def lambda_handler(event, context):
     groups = _get_groups_from_claims(claims)
     user = _get_username_from_claims(claims)
 
+    print("Auth context -> user:", user, "groups:", groups)
+
     # Solo ADMINISTRADOR y SECRETARIA pueden disparar notificaciones
-    if not any(g in ["ADMINISTRADOR", "SECRETARIA"] for g in groups):
+    if not any(g in ALLOWED_CREATOR_GROUPS for g in groups):
         return _response(
             403,
             {
@@ -128,6 +152,7 @@ def lambda_handler(event, context):
         body_raw = event.get("body") or "{}"
         if event.get("isBase64Encoded"):
             import base64
+
             body_raw = base64.b64decode(body_raw).decode("utf-8")
 
         body = json.loads(body_raw)
@@ -160,33 +185,51 @@ def lambda_handler(event, context):
             },
         )
 
-    # ---- Construir payload para SNS ----
+    abogado_id = body.get("abogado_id")
+    mensaje_extra = body.get("mensaje_extra")
+
+    # ---- Construir payload estructurado (para logs / debug) ----
     message_payload = {
         "tipo": tipo,
         "destinatario_email": destinatario_email,
         "id_audiencia": id_audiencia,
-        "abogado_id": body.get("abogado_id"),
+        "abogado_id": abogado_id,
         "fecha": fecha,
         "sala": sala,
         "estado": estado,
-        "mensaje_extra": body.get("mensaje_extra"),
+        "mensaje_extra": mensaje_extra,
         "env": ENVIRONMENT,
         "disparado_por": user,
         "disparado_en": datetime.utcnow().isoformat() + "Z",
     }
 
+    # ---- Construir mensaje de texto para el correo ----
+    lineas = [
+        f"Tipo: {tipo}",
+        f"ID audiencia: {id_audiencia}",
+        f"Abogado: {abogado_id or '(no especificado)'}",
+        f"Fecha: {fecha}",
+        f"Sala: {sala or '(no especificada)'}",
+        f"Estado: {estado}",
+        f"Destinatario: {destinatario_email}",
+        "",
+        f"Disparado por: {user}",
+        f"Entorno: {ENVIRONMENT}",
+        f"Fecha de envío (UTC): {message_payload['disparado_en']}",
+    ]
+
+    if mensaje_extra:
+        lineas.append("")
+        lineas.append(f"Nota: {mensaje_extra}")
+
+    message_text = "\n".join(lineas)
+
     # ---- Publicar en SNS ----
     try:
         resp = sns.publish(
             TopicArn=SNS_TOPIC_ARN,
-            Message=json.dumps(message_payload),
+            Message=message_text,  # lo que verás en el cuerpo del correo
             Subject=f"[{ENVIRONMENT}] Recordatorio audiencia {id_audiencia}",
-            MessageAttributes={
-                "tipo": {
-                    "DataType": "String",
-                    "StringValue": tipo,
-                }
-            },
         )
     except Exception as e:
         print("Error publicando en SNS:", e)
@@ -204,5 +247,6 @@ def lambda_handler(event, context):
             "message": "Notificación publicada en SNS correctamente.",
             "sns_message_id": resp.get("MessageId"),
             "payload": message_payload,
+            "groups": groups,
         },
     )
