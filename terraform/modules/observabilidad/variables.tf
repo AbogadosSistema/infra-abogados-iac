@@ -28,3 +28,10 @@ variable "alarm_email" {
   description = "Correo donde se enviarán las alarmas de CloudWatch"
   type        = string
 }
+
+# NUEVO: ID de la HTTP API (para alarmas 5xx)
+variable "api_gateway_api_id" {
+  description = "ID de la HTTP API (para alarmas 5xx). Dejar vacío para no crear la alarma."
+  type        = string
+  default     = ""
+}

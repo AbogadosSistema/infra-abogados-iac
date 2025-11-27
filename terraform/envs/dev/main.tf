@@ -229,4 +229,21 @@ module "observabilidad" {
     "${var.resource_prefix}-lambda-reportes",
     "${var.resource_prefix}-lambda-notificaciones",
   ]
+
+  # NUEVO: para alarmas 5xx de la HTTP API
+  api_gateway_api_id = module.api_gateway.api_id
+}
+# ============================
+# CloudTrail (auditoría API/infra)
+# ============================
+module "cloudtrail" {
+  source = "../../modules/cloudtrail"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  # log_retention_days = 365  # opcional, ya es el default
 }
