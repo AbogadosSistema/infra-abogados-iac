@@ -1,15 +1,18 @@
-# ci/terraform-plan.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
 # Primer argumento: entorno (dev, prod, etc.). Por defecto dev.
 ENVIRONMENT="${1:-dev}"
 
+# Segundo argumento (opcional): acción (plan | apply). Por defecto solo plan.
+ACTION="${2:-plan}"
+
 # Directorio raíz del repo (sube desde ci/ a la raíz)
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_DIR="${ROOT_DIR}/terraform/envs/${ENVIRONMENT}"
 
 echo "Entorno: ${ENVIRONMENT}"
+echo "Acción:  ${ACTION}"
 echo "Carpeta de trabajo: ${ENV_DIR}"
 
 if [ ! -d "${ENV_DIR}" ]; then
@@ -36,4 +39,11 @@ else
   terraform plan -input=false -out=tfplan
 fi
 
-echo "Terraform plan finalizado correctamente."
+# Si se invoca con 'apply', aplicamos el plan generado
+if [ "${ACTION}" = "apply" ]; then
+  echo "==== terraform apply (usando tfplan) ===="
+  terraform apply -input=false tfplan
+  echo "Terraform apply finalizado correctamente."
+else
+  echo "Solo se ejecutó terraform plan (sin apply)."
+fi
