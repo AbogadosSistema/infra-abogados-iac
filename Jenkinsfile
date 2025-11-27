@@ -3,12 +3,11 @@ pipeline {
 
     options {
         timestamps()
-        ansiColor('xterm')
         disableConcurrentBuilds()
     }
 
     environment {
-        AWS_REGION      = 'us-east-1'
+        AWS_REGION       = 'us-east-1'
         TF_IN_AUTOMATION = 'true'
     }
 
@@ -59,30 +58,30 @@ pipeline {
             }
         }
 
-        // Para el apply en futuro.
-        // stage('Terraform Apply (manual)') {
-        //     when {
-        //         beforeAgent true
-        //         expression { return env.BRANCH_NAME == 'develop' }
-        //     }
-        //     steps {
-        //         input message: '¿Aplicar cambios en infraestructura dev?'
-        //         withCredentials([[
-        //             $class: 'AmazonWebServicesCredentialsBinding',
-        //             credentialsId: 'aws-terraform'
-        //         ]]) {
-        //             sh '''
-        //               echo "==== Ejecutando Terraform apply para entorno dev ===="
-        //               ci/terraform-plan.sh dev apply
-        //             '''
-        //         }
-        //     }
-        // }
+        stage('Terraform Apply (manual, dev)') {
+            when {
+                beforeAgent true
+                expression { return env.BRANCH_NAME == 'develop' }
+            }
+            steps {
+                input message: '¿Aplicar cambios en infraestructura dev?'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-terraform'
+                ]]) {
+                    sh '''
+                      echo "==== Ejecutando Terraform apply para entorno dev ===="
+                      chmod +x ci/terraform-plan.sh
+                      ci/terraform-plan.sh dev apply
+                    '''
+                }
+            }
+        }
     }
 
     post {
         always {
-            echo "Pipeline completado (Checkout + Checkov + Terraform plan)."
+            echo "Pipeline completado (Checkout + Checkov + Terraform plan/apply opcional)."
         }
     }
 }
