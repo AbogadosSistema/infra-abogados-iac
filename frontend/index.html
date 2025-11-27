@@ -12,7 +12,7 @@
       background: #f5f5f5;
     }
     .card {
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
       background: #fff;
       padding: 1.5rem;
@@ -23,10 +23,38 @@
       font-size: 1.4rem;
       margin-top: 0;
     }
+    h2 {
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin-top: 0.3rem;
+      margin-bottom: 0.8rem;
+      font-size: 0.95rem;
+    }
     label {
       font-weight: 600;
       display: block;
       margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 0.4rem;
+      border-radius: 4px;
+      border: 1px solid #d4d4d4;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+    }
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
     }
     button {
       margin-top: 0.5rem;
@@ -34,6 +62,7 @@
       border-radius: 4px;
       border: none;
       cursor: pointer;
+      font-size: 0.9rem;
     }
     button.primary {
       background: #2563eb;
@@ -43,6 +72,8 @@
       background: #e5e7eb;
       margin-left: 0.5rem;
     }
+    .mt-1 { margin-top: 0.75rem; }
+    .mt-2 { margin-top: 1.25rem; }
     .output {
       margin-top: 1rem;
       padding: 0.75rem;
@@ -51,7 +82,7 @@
       border-radius: 4px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 0.9rem;
-      max-height: 300px;
+      max-height: 320px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
@@ -66,29 +97,107 @@
     .status.error {
       color: #dc2626;
     }
+    .section {
+      border-top: 1px solid #e5e7eb;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Infra Abogados – Prueba de API</h1>
     <p>
-      Esta página sirve solo para probar la API (healthcheck y endpoints básicos)
-      cuando el backend y el API Gateway estén listos.
+      Esta página sirve para probar rápidamente la API desplegada en AWS:
+      healthcheck, consultas de audiencias y creación de audiencias usando Cognito.
     </p>
 
+    <!-- Configuración de endpoint -->
     <div>
-      <label>Endpoint base de la API</label>
-      <input id="apiBaseUrl" type="text" style="width:100%; padding:0.4rem;"
-             placeholder="https://api-dev.tu-dominio.com" />
+      <h2>1. Endpoint base de la API</h2>
+      <p>Puedes ajustar la URL si cambias de entorno (dev, prod, etc.).</p>
+      <label>Endpoint base</label>
+      <input id="apiBaseUrl" type="text"
+             placeholder="https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev" />
     </div>
 
-    <div style="margin-top:1rem;">
-      <button class="primary" id="btnHealth">Probar /health</button>
-      <button class="secondary" id="btnAudiencias">Probar /audiencias (mock)</button>
+    <!-- Token JWT -->
+    <div class="section">
+      <h2>2. Token JWT de Cognito</h2>
+      <p>
+        Pega aquí el <strong>Access Token</strong> o <strong>Id Token</strong> de Cognito
+        para probar los endpoints protegidos (<code>/audiencias</code>, <code>/reportes</code>, etc.).
+      </p>
+      <label>Token JWT (Bearer)</label>
+      <textarea id="jwtToken" placeholder="eyJraWQiOiJ..."></textarea>
     </div>
 
+    <!-- Pruebas rápidas -->
+    <div class="section">
+      <h2>3. Pruebas rápidas</h2>
+      <p>
+        <strong>/health</strong> es público (sin token).
+        <strong>/audiencias</strong> requiere JWT de Cognito con el rol adecuado.
+      </p>
+
+      <div>
+        <button class="primary" id="btnHealth">Probar GET /health</button>
+        <button class="secondary" id="btnAudiencias">Probar GET /audiencias</button>
+      </div>
+    </div>
+
+    <!-- Mini UI de audiencias -->
+    <div class="section">
+      <h2>4. Mini UI – Audiencias</h2>
+      <p>
+        Usa este formulario para crear una audiencia de prueba
+        (<code>POST /audiencias</code>) y listar las audiencias visibles
+        según tu rol (<code>GET /audiencias</code>).
+      </p>
+
+      <div class="row">
+        <div>
+          <label for="idAudiencia">ID audiencia</label>
+          <input id="idAudiencia" type="text" placeholder="A-001" />
+        </div>
+        <div>
+          <label for="abogadoId">Abogado ID</label>
+          <input id="abogadoId" type="text" placeholder="abogado1" />
+        </div>
+        <div>
+          <label for="fecha">Fecha (ISO)</label>
+          <input id="fecha" type="text" placeholder="2025-12-01T09:00:00Z" />
+        </div>
+      </div>
+
+      <div class="row mt-1">
+        <div>
+          <label for="sala">Sala</label>
+          <input id="sala" type="text" placeholder="Sala 1" />
+        </div>
+        <div>
+          <label for="estado">Estado</label>
+          <select id="estado">
+            <option value="PENDIENTE" selected>PENDIENTE</option>
+            <option value="REALIZADA">REALIZADA</option>
+            <option value="CANCELADA">CANCELADA</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-1">
+        <label for="descripcion">Descripción (opcional)</label>
+        <textarea id="descripcion" placeholder="Descripción breve de la audiencia..."></textarea>
+      </div>
+
+      <div class="mt-1">
+        <button class="primary" id="btnCrearAudiencia">Crear audiencia (POST /audiencias)</button>
+        <button class="secondary" id="btnListarAudiencias">Listar audiencias (GET /audiencias)</button>
+      </div>
+    </div>
+
+    <!-- Estado y salida -->
     <div class="status" id="status"></div>
-
     <div class="output" id="output"></div>
   </div>
 
