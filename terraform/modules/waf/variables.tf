@@ -21,11 +21,13 @@ variable "common_tags" {
 
 variable "scope" {
   type        = string
-  description = "Ámbito del WAF (REGIONAL o CLOUDFRONT)"
+  description = "Scope de WAFv2: REGIONAL o CLOUDFRONT"
+  default     = "REGIONAL"
 }
 
+# Solo para recursos regionales (ALB, API REST, etc.)
 variable "resource_arn" {
   type        = string
-  description = "ARN del recurso a proteger (ALB, API REST, CloudFront, etc.). Dejar vacío para no asociar todavía."
+  description = "ARN del recurso regional a asociar cuando scope = REGIONAL"
   default     = ""
 }

@@ -19,7 +19,9 @@ resource "aws_cloudfront_distribution" "this" {
   comment             = "${var.project_name} frontend (${var.env})"
   default_root_object = "index.html"
 
-  # 🔹 BLOQUE CORRECTO: origin (no 'origins')
+  # Asociar WAFv2 cuando se provee un ARN
+  web_acl_id = var.web_acl_arn != "" ? var.web_acl_arn : null
+
   origin {
     domain_name = var.origin_domain_name
     origin_id   = "s3-frontend-origin"
@@ -51,8 +53,7 @@ resource "aws_cloudfront_distribution" "this" {
     cloudfront_default_certificate = true
   }
 
-  # Opcional pero útil para SPA o rutas directas:
-  # Si S3 devuelve 403/404, CloudFront sirve index.html con 200.
+  # SPA / rutas directas: servir index.html ante 403/404
   custom_error_response {
     error_code            = 403
     response_code         = 200
