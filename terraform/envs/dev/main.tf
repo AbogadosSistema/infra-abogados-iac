@@ -1,4 +1,5 @@
-# terraform/envs/dev/main.tf
+// terraform/envs/dev/main.tf
+
 // Tags comunes para todos los recursos del entorno dev
 locals {
   common_tags = {
@@ -39,7 +40,24 @@ module "s3_frontend" {
   common_tags     = local.common_tags
 }
 
-// CloudFront delante del S3 Frontend
+# ============================
+# WAF (protegiendo CloudFront)
+# ============================
+module "waf_api" {
+  source = "../../modules/waf"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  common_tags     = local.common_tags
+
+  # El Web ACL es de tipo CLOUDFRONT; la asociación se hace
+  # desde la distribución usando web_acl_id (no con association).
+  scope = "CLOUDFRONT"
+  # resource_arn se usa solo cuando scope = "REGIONAL"
+}
+
+# CloudFront delante del S3 Frontend
 module "cloudfront_frontend" {
   source = "../../modules/cloudfront-frontend"
 
@@ -52,6 +70,9 @@ module "cloudfront_frontend" {
   s3_bucket_id       = module.s3_frontend.bucket_name
   s3_bucket_arn      = module.s3_frontend.bucket_arn
   origin_domain_name = module.s3_frontend.bucket_regional_domain_name
+
+  # Asociar la distribución de CloudFront al Web ACL de WAFv2
+  web_acl_arn = module.waf_api.web_acl_arn
 }
 
 // Módulo de DynamoDB para audiencias
@@ -209,25 +230,6 @@ module "api_gateway" {
 
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_app_client_id = module.cognito.app_client_id
-}
-
-# ============================
-# WAF (definido pero SIN asociar aún a un recurso)
-# ============================
-module "waf_api" {
-  source = "../../modules/waf"
-
-  project_name    = var.project_name
-  env             = var.env
-  resource_prefix = var.resource_prefix
-  common_tags     = local.common_tags
-
-  # Por ahora solo definimos el Web ACL.
-  # Más adelante, cuando tengamos CloudFront:
-  #   - cambiaremos scope a "CLOUDFRONT"
-  #   - pasaremos resource_arn = <ARN de la distribución CloudFront>
-  scope = "REGIONAL"
-  # sin resource_arn -> no se crea aws_wafv2_web_acl_association
 }
 
 # ============================

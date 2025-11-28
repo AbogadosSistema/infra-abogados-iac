@@ -39,3 +39,9 @@ variable "origin_domain_name" {
   type        = string
   description = "Domain name regional del bucket S3 (para usar como origin en CloudFront)"
 }
+
+variable "web_acl_arn" {
+  type        = string
+  description = "ARN del Web ACL de WAFv2 para asociar con la distribución (opcional)"
+  default     = ""
+}
