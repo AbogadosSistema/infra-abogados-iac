@@ -39,6 +39,21 @@ module "s3_frontend" {
   common_tags     = local.common_tags
 }
 
+// NUEVO: CloudFront delante del S3 Frontend
+module "cloudfront_frontend" {
+  source = "../../modules/cloudfront-frontend"
+
+  project_name    = var.project_name
+  env             = var.env
+  resource_prefix = var.resource_prefix
+  aws_region      = var.aws_region
+  common_tags     = local.common_tags
+
+  s3_bucket_id       = module.s3_frontend.bucket_name
+  s3_bucket_arn      = module.s3_frontend.bucket_arn
+  origin_domain_name = module.s3_frontend.bucket_regional_domain_name
+}
+
 // Módulo de DynamoDB para audiencias
 module "dynamodb_audiencias" {
   source = "../../modules/dynamodb-audiencias"
@@ -233,6 +248,7 @@ module "observabilidad" {
   # NUEVO: para alarmas 5xx de la HTTP API
   api_gateway_api_id = module.api_gateway.api_id
 }
+
 # ============================
 # CloudTrail (auditoría API/infra)
 # ============================

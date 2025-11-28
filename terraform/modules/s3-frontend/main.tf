@@ -1,4 +1,6 @@
 # terraform/modules/s3-frontend/main.tf
+
+# Bucket para el frontend estático
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.resource_prefix}-frontend"
 
@@ -10,7 +12,8 @@ resource "aws_s3_bucket" "frontend" {
   )
 }
 
-# Configuración de sitio estático
+# Configuración de sitio estático (la dejamos activa, aunque el acceso real
+# será a través de CloudFront apuntando al endpoint S3 "normal").
 resource "aws_s3_bucket_website_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
@@ -23,36 +26,13 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   }
 }
 
-# Permitir acceso público de solo lectura (luego esto irá detrás de CloudFront)
+# Bloquear acceso público directo al bucket.
+# Más adelante, CloudFront accederá usando OAC y una bucket policy específica.
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
-
-data "aws_iam_policy_document" "frontend_public" {
-  statement {
-    sid = "AllowPublicRead"
-
-    principals {
-      type        = "*"
-      identifiers = ["*"]
-    }
-
-    actions = [
-      "s3:GetObject"
-    ]
-
-    resources = [
-      "${aws_s3_bucket.frontend.arn}/*"
-    ]
-  }
-}
-
-resource "aws_s3_bucket_policy" "frontend_public" {
-  bucket = aws_s3_bucket.frontend.id
-  policy = data.aws_iam_policy_document.frontend_public.json
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
