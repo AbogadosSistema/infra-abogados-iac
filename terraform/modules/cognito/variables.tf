@@ -11,7 +11,7 @@ variable "env" {
 
 variable "resource_prefix" {
   type        = string
-  description = "Prefijo común para nombres de recursos"
+  description = "Prefijo para nombres de recursos"
 }
 
 variable "aws_region" {
@@ -22,4 +22,14 @@ variable "aws_region" {
 variable "common_tags" {
   type        = map(string)
   description = "Tags comunes para todos los recursos"
+}
+
+variable "oauth_callback_url" {
+  type        = string
+  description = "URL de devolución (callback) del flujo OAuth/Hosted UI"
+}
+
+variable "oauth_logout_url" {
+  type        = string
+  description = "URL de cierre de sesión (logout) del flujo OAuth/Hosted UI"
 }

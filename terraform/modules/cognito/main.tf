@@ -28,7 +28,7 @@ resource "aws_cognito_user_pool_client" "app" {
 
   prevent_user_existence_errors = "ENABLED"
 
-  # 👇 Añadimos USER_PASSWORD_AUTH para poder probar login desde CLI
+  # Flujos de autenticación "clásicos" (útiles para CLI, etc.)
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
@@ -36,6 +36,30 @@ resource "aws_cognito_user_pool_client" "app" {
   ]
 
   supported_identity_providers = ["COGNITO"]
+
+  # ==== Hosted UI / OAuth ====
+  allowed_oauth_flows_user_pool_client = true
+
+  # Dejamos habilitado código + implícito
+  allowed_oauth_flows = [
+    "code",
+    "implicit",
+  ]
+
+  allowed_oauth_scopes = [
+    "openid",
+    "email",
+    "profile",
+  ]
+
+  # Deben coincidir EXACTAMENTE con la redirect_uri que use el frontend
+  callback_urls = [
+    var.oauth_callback_url,
+  ]
+
+  logout_urls = [
+    var.oauth_logout_url,
+  ]
 }
 
 # ============================
