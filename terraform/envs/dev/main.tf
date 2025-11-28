@@ -39,7 +39,7 @@ module "s3_frontend" {
   common_tags     = local.common_tags
 }
 
-// NUEVO: CloudFront delante del S3 Frontend
+// CloudFront delante del S3 Frontend
 module "cloudfront_frontend" {
   source = "../../modules/cloudfront-frontend"
 
@@ -185,6 +185,10 @@ module "cognito" {
   resource_prefix = var.resource_prefix
   aws_region      = var.aws_region
   common_tags     = local.common_tags
+
+  # URLs de callback/logout del Hosted UI apuntando a CloudFront
+  oauth_callback_url = "https://${module.cloudfront_frontend.cdn_domain_name}/index.html"
+  oauth_logout_url   = "https://${module.cloudfront_frontend.cdn_domain_name}/index.html"
 }
 
 # ============================
@@ -245,7 +249,7 @@ module "observabilidad" {
     "${var.resource_prefix}-lambda-notificaciones",
   ]
 
-  # NUEVO: para alarmas 5xx de la HTTP API
+  # Para alarmas 5xx de la HTTP API
   api_gateway_api_id = module.api_gateway.api_id
 }
 

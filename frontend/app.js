@@ -1,24 +1,30 @@
-// frontend/app.js
 (function () {
   const inputBaseUrl = document.getElementById("apiBaseUrl");
-  const inputJwtToken = document.getElementById("jwtToken");
-
+  const jwtInput = document.getElementById("jwtTokenInput");
   const btnHealth = document.getElementById("btnHealth");
   const btnAudiencias = document.getElementById("btnAudiencias");
-  const btnCrearAudiencia = document.getElementById("btnCrearAudiencia");
-  const btnListarAudiencias = document.getElementById("btnListarAudiencias");
+  const btnOpenCognito = document.getElementById("btnOpenCognito");
+
+  const roleSelector = document.getElementById("roleSelector");
+  const roleHint = document.getElementById("roleHint");
+  const btnListAudiencias = document.getElementById("btnListAudiencias");
+  const btnCreateAudiencia = document.getElementById("btnCreateAudiencia");
+  const btnCancelAudiencia = document.getElementById("btnCancelAudiencia");
 
   const output = document.getElementById("output");
   const statusEl = document.getElementById("status");
 
-  const idAudienciaEl = document.getElementById("idAudiencia");
-  const abogadoIdEl = document.getElementById("abogadoId");
-  const fechaEl = document.getElementById("fecha");
-  const salaEl = document.getElementById("sala");
-  const estadoEl = document.getElementById("estado");
-  const descripcionEl = document.getElementById("descripcion");
+  // Campos de creación/cancelación
+  const audId = document.getElementById("audId");
+  const audAbogado = document.getElementById("audAbogado");
+  const audFecha = document.getElementById("audFecha");
+  const audSala = document.getElementById("audSala");
+  const audEstado = document.getElementById("audEstado");
+  const audDescripcion = document.getElementById("audDescripcion");
+  const audCancelId = document.getElementById("audCancelId");
 
-  // Si existe API_BASE_URL en config.js, usarlo como valor por defecto
+  // --------------- helpers UI ---------------
+
   if (typeof API_BASE_URL === "string" && API_BASE_URL.length > 0) {
     inputBaseUrl.value = API_BASE_URL;
   }
@@ -46,8 +52,55 @@
   }
 
   function getJwtToken() {
-    return (inputJwtToken.value || "").trim();
+    return (jwtInput.value || "").trim();
   }
+
+  function explainRole(role) {
+    switch (role) {
+      case "ADMINISTRADOR":
+        roleHint.textContent =
+          "ADMINISTRADOR: puede ver todas las audiencias y crear/cancelar audiencias de cualquier abogado.";
+        break;
+      case "SECRETARIA":
+        roleHint.textContent =
+          "SECRETARIA: puede ver y gestionar audiencias solo de los abogados asignados (claim custom:abogados_asignados).";
+        break;
+      case "ABOGADO":
+      default:
+        roleHint.textContent =
+          "ABOGADO: solo puede ver sus propias audiencias. Los intentos de crear/cancelar deberían fallar con 403.";
+        break;
+    }
+  }
+
+  explainRole(roleSelector.value);
+
+  roleSelector.addEventListener("change", () => {
+    explainRole(roleSelector.value);
+  });
+
+  // Intentar extraer token de la URL hash si vienes de un callback de Cognito
+  (function tryExtractTokenFromHash() {
+    const hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get("access_token");
+    const idToken = params.get("id_token");
+    const token = accessToken || idToken;
+
+    if (token) {
+      jwtInput.value = token;
+      setStatus(
+        "Token JWT detectado en la URL (callback de Cognito).",
+        "ok"
+      );
+      // Limpiar el hash para no dejar el token en la barra de direcciones
+      window.location.hash = "";
+    }
+  })();
+
+  // --------------- llamada genérica a la API ---------------
 
   async function callEndpoint(path, options = {}) {
     const base = getBaseUrl();
@@ -57,28 +110,27 @@
     }
 
     const url = base.replace(/\/+$/, "") + path;
-    const requireAuth = options.requireAuth || false;
 
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     };
 
-    if (requireAuth) {
+    if (options.auth) {
       const token = getJwtToken();
       if (!token) {
         setStatus(
-          "Este endpoint requiere JWT. Pega un token válido en la sección de Cognito.",
+          "Este endpoint requiere token JWT. Pega un token en la sección 2.",
           "error"
         );
-        setOutput("");
+        setOutput(null);
         return;
       }
       headers["Authorization"] = "Bearer " + token;
     }
 
     setStatus(`Llamando a ${url} ...`, "");
-    setOutput("");
+    setOutput(null);
 
     try {
       const resp = await fetch(url, {
@@ -92,7 +144,7 @@
       try {
         json = JSON.parse(text);
       } catch {
-        json = text; // no era JSON, mostrar texto tal cual
+        json = text;
       }
 
       if (!resp.ok) {
@@ -109,58 +161,86 @@
     }
   }
 
-  // =========================
-  // Handlers de botones
-  // =========================
+  // --------------- botones sección 2 / 3 ---------------
 
-  // GET /health (público, sin token)
+  btnOpenCognito.addEventListener("click", () => {
+    if (
+      typeof COGNITO_HOSTED_UI_URL === "string" &&
+      COGNITO_HOSTED_UI_URL.length > 0
+    ) {
+      window.open(COGNITO_HOSTED_UI_URL, "_blank");
+    } else {
+      alert(
+        "Configura COGNITO_HOSTED_UI_URL en config.js con la URL de tu Hosted UI de Cognito."
+      );
+    }
+  });
+
   btnHealth.addEventListener("click", () => {
-    callEndpoint("/health", { method: "GET", requireAuth: false });
+    callEndpoint("/health", { method: "GET", auth: false });
   });
 
-  // GET /audiencias (protegido, requiere JWT)
   btnAudiencias.addEventListener("click", () => {
-    callEndpoint("/audiencias", { method: "GET", requireAuth: true });
+    callEndpoint("/audiencias", { method: "GET", auth: true });
   });
 
-  // POST /audiencias – crear audiencia
-  btnCrearAudiencia.addEventListener("click", () => {
-    const id_audiencia = (idAudienciaEl.value || "").trim();
-    const abogado_id = (abogadoIdEl.value || "").trim();
-    const fecha = (fechaEl.value || "").trim();
-    const sala = (salaEl.value || "").trim();
-    const estado = (estadoEl.value || "").trim() || "PENDIENTE";
-    const descripcion = (descripcionEl.value || "").trim();
+  // --------------- Mini UI Audiencias ---------------
 
-    if (!id_audiencia || !abogado_id || !fecha || !sala) {
+  btnListAudiencias.addEventListener("click", () => {
+    callEndpoint("/audiencias", { method: "GET", auth: true });
+  });
+
+  btnCreateAudiencia.addEventListener("click", () => {
+    const id = audId.value.trim();
+    const abogado = audAbogado.value.trim();
+    const sala = audSala.value.trim();
+    const estado = audEstado.value;
+    const fechaRaw = audFecha.value; // formato local datetime-local
+
+    if (!id || !abogado || !sala || !estado || !fechaRaw) {
       setStatus(
-        "Campos obligatorios para crear audiencia: id_audiencia, abogado_id, fecha, sala.",
+        "Para crear una audiencia, completa id_audiencia, abogado_id, fecha, sala y estado.",
         "error"
       );
       return;
     }
 
+    // Convertir datetime-local (YYYY-MM-DDTHH:MM) a ISO con Z
+    const fechaIso = new Date(fechaRaw).toISOString();
+
     const body = {
-      id_audiencia,
-      abogado_id,
-      fecha,
-      sala,
-      estado,
+      id_audiencia: id,
+      abogado_id: abogado,
+      fecha: fechaIso,
+      sala: sala,
+      estado: estado,
     };
 
-    if (descripcion) {
-      body.descripcion = descripcion;
+    const desc = audDescripcion.value.trim();
+    if (desc) {
+      body.descripcion = desc;
     }
 
     callEndpoint("/audiencias", {
       method: "POST",
-      requireAuth: true,
+      auth: true,
       body,
     });
   });
 
-  // GET /audiencias – listar audiencias
-  btnListarAudiencias.addEventListener("click", () => {
-    callEndpoint("/audiencias", { method: "GET", requireAuth: true });
+  btnCancelAudiencia.addEventListener("click", () => {
+    const id = audCancelId.value.trim();
+    if (!id) {
+      setStatus(
+        "Ingresa el id_audiencia a cancelar antes de llamar a DELETE /audiencias.",
+        "error"
+      );
+      return;
+    }
+
+    callEndpoint(`/audiencias?id_audiencia=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      auth: true,
+    });
   });
 })();
