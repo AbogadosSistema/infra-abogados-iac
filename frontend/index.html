@@ -2,60 +2,88 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Infra Abogados – Prueba API</title>
+  <title>Infra Abogados – Prueba de API</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
       padding: 2rem;
       background: #f5f5f5;
+      color: #0f172a;
     }
+
     .card {
-      max-width: 800px;
+      max-width: 960px;
       margin: 0 auto;
       background: #fff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
     }
+
     h1 {
-      font-size: 1.4rem;
+      font-size: 1.6rem;
       margin-top: 0;
+      margin-bottom: 0.5rem;
     }
+
     h2 {
-      font-size: 1.1rem;
+      font-size: 1.3rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    h3, h4 {
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
+
     p {
-      margin-top: 0.3rem;
-      margin-bottom: 0.8rem;
+      margin-top: 0.2rem;
+      margin-bottom: 0.75rem;
       font-size: 0.95rem;
+      line-height: 1.5;
     }
+
     label {
       font-weight: 600;
       display: block;
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.25rem;
       font-size: 0.9rem;
     }
-    input, textarea, select {
+
+    input[type="text"],
+    input[type="datetime-local"],
+    textarea,
+    select {
       width: 100%;
-      padding: 0.4rem;
+      padding: 0.4rem 0.5rem;
       border-radius: 4px;
-      border: 1px solid #d4d4d4;
+      border: 1px solid #cbd5e1;
       font-size: 0.9rem;
-      box-sizing: border-box;
+      font-family: inherit;
     }
+
     textarea {
-      min-height: 70px;
+      min-height: 80px;
       resize: vertical;
     }
+
     .row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
+
+    .col-6 {
+      flex: 1 1 260px;
+    }
+
     button {
       margin-top: 0.5rem;
       padding: 0.5rem 1rem;
@@ -64,16 +92,34 @@
       cursor: pointer;
       font-size: 0.9rem;
     }
+
     button.primary {
       background: #2563eb;
       color: white;
     }
+
     button.secondary {
       background: #e5e7eb;
+      color: #111827;
+    }
+
+    button.inline {
       margin-left: 0.5rem;
     }
-    .mt-1 { margin-top: 0.75rem; }
-    .mt-2 { margin-top: 1.25rem; }
+
+    .status {
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .status.ok {
+      color: #16a34a;
+    }
+
+    .status.error {
+      color: #dc2626;
+    }
+
     .output {
       margin-top: 1rem;
       padding: 0.75rem;
@@ -81,26 +127,52 @@
       color: #e5e7eb;
       border-radius: 4px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.9rem;
-      max-height: 320px;
+      font-size: 0.85rem;
+      max-height: 380px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
     }
-    .status {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
+
+    .muted {
+      font-size: 0.8rem;
+      color: #6b7280;
     }
-    .status.ok {
-      color: #16a34a;
+
+    .section-box {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
     }
-    .status.error {
-      color: #dc2626;
+
+    .badge {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      background: #e5e7eb;
+      color: #374151;
+      margin-left: 0.25rem;
+      vertical-align: middle;
     }
-    .section {
-      border-top: 1px solid #e5e7eb;
-      margin-top: 1.25rem;
-      padding-top: 1.25rem;
+
+    .only-admin-secretaria {
+      border-left: 3px solid #2563eb;
+      padding-left: 0.75rem;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1rem;
+      }
+
+      .card {
+        padding: 1.25rem;
+      }
     }
   </style>
 </head>
@@ -108,95 +180,186 @@
   <div class="card">
     <h1>Infra Abogados – Prueba de API</h1>
     <p>
-      Esta página sirve para probar rápidamente la API desplegada en AWS:
-      healthcheck, consultas de audiencias y creación de audiencias usando Cognito.
+      Esta página te permite probar la API desplegada en AWS:
+      <strong>healthcheck</strong>, consultas de audiencias y creación/cancelación
+      de audiencias usando <strong>Cognito</strong> para autenticación.
     </p>
 
-    <!-- Configuración de endpoint -->
-    <div>
-      <h2>1. Endpoint base de la API</h2>
-      <p>Puedes ajustar la URL si cambias de entorno (dev, prod, etc.).</p>
-      <label>Endpoint base</label>
-      <input id="apiBaseUrl" type="text"
-             placeholder="https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev" />
-    </div>
+    <!-- 1. Endpoint base -->
+    <h2>1. Endpoint base de la API</h2>
+    <p>
+      Usa aquí el <strong>api_endpoint</strong> de Terraform, por ejemplo:
+      <code>https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev</code>.
+    </p>
 
-    <!-- Token JWT -->
-    <div class="section">
-      <h2>2. Token JWT de Cognito</h2>
-      <p>
-        Pega aquí el <strong>Access Token</strong> o <strong>Id Token</strong> de Cognito
-        para probar los endpoints protegidos (<code>/audiencias</code>, <code>/reportes</code>, etc.).
+    <label for="apiBaseUrl">Endpoint base</label>
+    <input
+      id="apiBaseUrl"
+      type="text"
+      placeholder="https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev"
+    />
+    <p class="muted">
+      Puedes cambiarlo si más adelante tienes un entorno <code>prod</code>.
+    </p>
+
+    <!-- 2. Token JWT -->
+    <h2>2. Token JWT de Cognito</h2>
+    <p>
+      Inicia sesión en Cognito (o registra un usuario) y pega aquí el
+      <strong>Access Token</strong> o <strong>Id Token</strong> para probar
+      los endpoints protegidos (<code>/audiencias</code>, <code>/reportes</code>, etc.).
+    </p>
+
+    <div class="section-box">
+      <label for="jwtTokenInput">Token JWT (Bearer)</label>
+      <textarea
+        id="jwtTokenInput"
+        placeholder="eyJraWQiOiJ..."
+      ></textarea>
+      <p class="muted">
+        El backend espera el header
+        <code>Authorization: Bearer &lt;token&gt;</code>.
       </p>
-      <label>Token JWT (Bearer)</label>
-      <textarea id="jwtToken" placeholder="eyJraWQiOiJ..."></textarea>
+
+      <button id="btnOpenCognito" class="secondary">
+        Abrir portal de login / registro (Cognito)
+      </button>
+      <span class="muted">
+        &nbsp;(<strong>demo</strong>: configura la URL real del Hosted UI en <code>config.js</code>).
+      </span>
     </div>
 
-    <!-- Pruebas rápidas -->
-    <div class="section">
-      <h2>3. Pruebas rápidas</h2>
-      <p>
-        <strong>/health</strong> es público (sin token).
-        <strong>/audiencias</strong> requiere JWT de Cognito con el rol adecuado.
+    <!-- 3. Pruebas rápidas -->
+    <h2>3. Pruebas rápidas</h2>
+    <p>
+      <code>/health</code> es público (sin token). <code>/audiencias</code>
+      requiere JWT de Cognito con el rol adecuado.
+    </p>
+
+    <div class="section-box">
+      <button id="btnHealth" class="primary">
+        Probar GET /health
+      </button>
+      <button id="btnAudiencias" class="secondary inline">
+        Probar GET /audiencias
+      </button>
+      <p class="muted">
+        Si el token no es válido o el rol no tiene permiso, el backend devolverá
+        <code>403</code> o <code>401</code>.
       </p>
-
-      <div>
-        <button class="primary" id="btnHealth">Probar GET /health</button>
-        <button class="secondary" id="btnAudiencias">Probar GET /audiencias</button>
-      </div>
     </div>
 
-    <!-- Mini UI de audiencias -->
-    <div class="section">
-      <h2>4. Mini UI – Audiencias</h2>
-      <p>
-        Usa este formulario para crear una audiencia de prueba
-        (<code>POST /audiencias</code>) y listar las audiencias visibles
-        según tu rol (<code>GET /audiencias</code>).
+    <!-- 4. Mini UI – Audiencias -->
+    <h2>4. Mini UI – Audiencias por rol</h2>
+    <p>
+      Selecciona el rol del usuario con el que has iniciado sesión. Esta selección
+      solo afecta a cómo se muestra la interfaz; las restricciones reales se aplican
+      en el backend usando los grupos de Cognito
+      (<code>ADMINISTRADOR</code>, <code>SECRETARIA</code>, <code>ABOGADO</code>).
+    </p>
+
+    <div class="section-box">
+      <label for="roleSelector">Rol de demostración</label>
+      <select id="roleSelector">
+        <option value="ABOGADO">ABOGADO</option>
+        <option value="SECRETARIA">SECRETARIA</option>
+        <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+      </select>
+      <p id="roleHint" class="muted"></p>
+    </div>
+
+    <div class="section-box">
+      <h3>4.1. Consultar audiencias visibles</h3>
+      <p class="muted">
+        Según el rol:
+        <strong>ADMINISTRADOR</strong> ve todas,
+        <strong>SECRETARIA</strong> ve las de sus abogados asignados,
+        <strong>ABOGADO</strong> solo las suyas.
+      </p>
+      <button id="btnListAudiencias" class="primary">
+        GET /audiencias
+      </button>
+    </div>
+
+    <div class="section-box only-admin-secretaria">
+      <h3>
+        4.2. Crear audiencia
+        <span class="badge">ADMINISTRADOR / SECRETARIA</span>
+      </h3>
+      <p class="muted">
+        El backend validará permisos. Si iniciaste sesión como ABOGADO,
+        esta operación debería fallar con <code>403</code>.
       </p>
 
       <div class="row">
-        <div>
-          <label for="idAudiencia">ID audiencia</label>
-          <input id="idAudiencia" type="text" placeholder="A-001" />
+        <div class="col-6">
+          <label for="audId">ID audiencia (id_audiencia)</label>
+          <input id="audId" type="text" placeholder="A-001" />
         </div>
-        <div>
-          <label for="abogadoId">Abogado ID</label>
-          <input id="abogadoId" type="text" placeholder="abogado1" />
-        </div>
-        <div>
-          <label for="fecha">Fecha (ISO)</label>
-          <input id="fecha" type="text" placeholder="2025-12-01T09:00:00Z" />
+        <div class="col-6">
+          <label for="audAbogado">Abogado (abogado_id)</label>
+          <input id="audAbogado" type="text" placeholder="abogado1" />
         </div>
       </div>
 
-      <div class="row mt-1">
-        <div>
-          <label for="sala">Sala</label>
-          <input id="sala" type="text" placeholder="Sala 1" />
+      <div class="row">
+        <div class="col-6">
+          <label for="audFecha">Fecha y hora (ISO)</label>
+          <input
+            id="audFecha"
+            type="datetime-local"
+            placeholder="2025-12-01T09:00"
+          />
+          <p class="muted">
+            Se enviará como ISO (ej. <code>2025-12-01T09:00:00Z</code>).
+          </p>
         </div>
-        <div>
-          <label for="estado">Estado</label>
-          <select id="estado">
-            <option value="PENDIENTE" selected>PENDIENTE</option>
+        <div class="col-6">
+          <label for="audSala">Sala</label>
+          <input id="audSala" type="text" placeholder="Sala 1" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-6">
+          <label for="audEstado">Estado</label>
+          <select id="audEstado">
+            <option value="PENDIENTE">PENDIENTE</option>
             <option value="REALIZADA">REALIZADA</option>
             <option value="CANCELADA">CANCELADA</option>
           </select>
         </div>
+        <div class="col-6">
+          <label for="audDescripcion">Descripción (opcional)</label>
+          <input id="audDescripcion" type="text" placeholder="Audiencia preliminar" />
+        </div>
       </div>
 
-      <div class="mt-1">
-        <label for="descripcion">Descripción (opcional)</label>
-        <textarea id="descripcion" placeholder="Descripción breve de la audiencia..."></textarea>
-      </div>
-
-      <div class="mt-1">
-        <button class="primary" id="btnCrearAudiencia">Crear audiencia (POST /audiencias)</button>
-        <button class="secondary" id="btnListarAudiencias">Listar audiencias (GET /audiencias)</button>
-      </div>
+      <button id="btnCreateAudiencia" class="primary">
+        POST /audiencias
+      </button>
     </div>
 
-    <!-- Estado y salida -->
+    <div class="section-box only-admin-secretaria">
+      <h3>
+        4.3. Cancelar audiencia
+        <span class="badge">ADMINISTRADOR / SECRETARIA</span>
+      </h3>
+      <p class="muted">
+        Esta operación realiza un <em>soft delete</em> marcando la audiencia como
+        <code>CANCELADA</code>.
+      </p>
+
+      <label for="audCancelId">ID de audiencia a cancelar</label>
+      <input id="audCancelId" type="text" placeholder="A-001" />
+
+      <button id="btnCancelAudiencia" class="secondary">
+        DELETE /audiencias
+      </button>
+    </div>
+
+    <!-- 5. Resultado -->
+    <h2>5. Respuesta de la API</h2>
     <div class="status" id="status"></div>
     <div class="output" id="output"></div>
   </div>
