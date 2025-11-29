@@ -1,3 +1,9 @@
+import os
+
+# Asegurar región dummy para que boto3 no lance NoRegionError
+os.environ.setdefault("AWS_REGION", "us-east-1")
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+
 import json
 import handler  # se importa el handler.py del mismo directorio
 
