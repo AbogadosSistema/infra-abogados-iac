@@ -1,9 +1,11 @@
 (function () {
+  // ------------------ Referencias a elementos ------------------
   const inputBaseUrl = document.getElementById("apiBaseUrl");
   const jwtInput = document.getElementById("jwtTokenInput");
+
+  const btnOpenCognito = document.getElementById("btnOpenCognito");
   const btnHealth = document.getElementById("btnHealth");
   const btnAudiencias = document.getElementById("btnAudiencias");
-  const btnOpenCognito = document.getElementById("btnOpenCognito");
 
   const roleSelector = document.getElementById("roleSelector");
   const roleHint = document.getElementById("roleHint");
@@ -14,6 +16,16 @@
   const output = document.getElementById("output");
   const statusEl = document.getElementById("status");
 
+  // Resumen de usuario
+  const currentUserEl = document.getElementById("currentUser");
+  const currentRoleEl = document.getElementById("currentRole");
+  const currentGroupsEl = document.getElementById("currentGroups");
+  const currentAssignedEl = document.getElementById("currentAssignedLawyers");
+  const rawClaimsEl = document.getElementById("rawClaims");
+
+  // Secciones que solo deberían estar activas para ADMINISTRADOR / SECRETARIA
+  const adminSections = document.querySelectorAll(".only-admin-secretaria");
+
   // Campos de creación/cancelación
   const audId = document.getElementById("audId");
   const audAbogado = document.getElementById("audAbogado");
@@ -23,7 +35,7 @@
   const audDescripcion = document.getElementById("audDescripcion");
   const audCancelId = document.getElementById("audCancelId");
 
-  // --------------- helpers UI ---------------
+  // ------------------ Estado y helpers básicos ------------------
 
   if (typeof API_BASE_URL === "string" && API_BASE_URL.length > 0) {
     inputBaseUrl.value = API_BASE_URL;
@@ -48,11 +60,100 @@
   }
 
   function getBaseUrl() {
-    return inputBaseUrl.value.trim();
+    return (inputBaseUrl.value || "").trim();
   }
 
   function getJwtToken() {
     return (jwtInput.value || "").trim();
+  }
+
+  // ------------------ Decodificación de JWT ------------------
+
+  function decodeJwtPayload(token) {
+    if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+
+    try {
+      let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      // Relleno para múltiplos de 4
+      const pad = base64.length % 4;
+      if (pad === 2) base64 += "==";
+      else if (pad === 3) base64 += "=";
+
+      const json = atob(base64);
+      return JSON.parse(json);
+    } catch (e) {
+      console.warn("No se pudo decodificar el payload del JWT:", e);
+      return null;
+    }
+  }
+
+  function applyClaims(claims) {
+    if (!claims || typeof claims !== "object") {
+      currentUserEl.textContent = "-";
+      currentRoleEl.textContent = "-";
+      currentGroupsEl.textContent = "-";
+      currentAssignedEl.textContent = "-";
+      rawClaimsEl.textContent = "";
+      return;
+    }
+
+    // username
+    const username =
+      claims["cognito:username"] || claims["username"] || "(sin username)";
+    currentUserEl.textContent = username;
+
+    // grupos
+    const groupsClaim = claims["cognito:groups"];
+    let groupsList = [];
+    if (Array.isArray(groupsClaim)) {
+      groupsList = groupsClaim;
+    } else if (typeof groupsClaim === "string") {
+      groupsList = groupsClaim.split(",").map((g) => g.trim());
+    }
+    currentGroupsEl.textContent =
+      groupsList.length > 0 ? groupsList.join(", ") : "-";
+
+    // determinar rol igual que en el backend
+    const order = ["ADMINISTRADOR", "SECRETARIA", "ABOGADO"];
+    let detectedRole = null;
+
+    for (const r of order) {
+      if (groupsList.includes(r)) {
+        detectedRole = r;
+        break;
+      }
+    }
+
+    if (!detectedRole && typeof claims["custom:rol"] === "string") {
+      const cr = claims["custom:rol"];
+      if (order.includes(cr)) detectedRole = cr;
+    }
+
+    currentRoleEl.textContent = detectedRole || "-";
+
+    // abogados asignados
+    const rawAssigned = claims["custom:abogados_asignados"];
+    let assigned = "-";
+    if (typeof rawAssigned === "string" && rawAssigned.trim()) {
+      assigned = rawAssigned
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean)
+        .join(", ");
+    }
+    currentAssignedEl.textContent = assigned || "-";
+
+    // claims completos
+    try {
+      rawClaimsEl.textContent = JSON.stringify(claims, null, 2);
+    } catch {
+      rawClaimsEl.textContent = String(claims);
+    }
+
+    // actualizar UI de rol (habilitar / deshabilitar secciones)
+    updateRoleUI(detectedRole || "ABOGADO");
   }
 
   function explainRole(role) {
@@ -73,13 +174,34 @@
     }
   }
 
-  explainRole(roleSelector.value);
+  function updateRoleUI(role) {
+    explainRole(role);
 
-  roleSelector.addEventListener("change", () => {
-    explainRole(roleSelector.value);
-  });
+    const canManage =
+      role === "ADMINISTRADOR" || role === "SECRETARIA";
 
-  // Intentar extraer token de la URL hash si vienes de un callback de Cognito
+    adminSections.forEach((section) => {
+      section.setAttribute("data-disabled", canManage ? "false" : "true");
+    });
+
+    // sincronizar también el selector visual de rol
+    if (roleSelector) {
+      roleSelector.value = role;
+    }
+  }
+
+  function refreshFromToken() {
+    const token = getJwtToken();
+    if (!token) {
+      applyClaims(null);
+      return;
+    }
+    const claims = decodeJwtPayload(token);
+    applyClaims(claims);
+  }
+
+  // ------------------ Extracción de token desde el hash ------------------
+
   (function tryExtractTokenFromHash() {
     const hash = window.location.hash;
     if (!hash || hash.length < 2) return;
@@ -95,21 +217,42 @@
         "Token JWT detectado en la URL (callback de Cognito).",
         "ok"
       );
+      refreshFromToken();
       // Limpiar el hash para no dejar el token en la barra de direcciones
       window.location.hash = "";
     }
   })();
 
-  // --------------- llamada genérica a la API ---------------
+  // Cuando el usuario pegue un token manualmente y salga del textarea
+  jwtInput.addEventListener("blur", () => {
+    refreshFromToken();
+  });
+
+  // Selector de rol (solo cambia textos y estado visual, la seguridad real es en backend)
+  if (roleSelector) {
+    roleSelector.addEventListener("change", () => {
+      const manualRole = roleSelector.value;
+      explainRole(manualRole);
+      const canManage =
+        manualRole === "ADMINISTRADOR" || manualRole === "SECRETARIA";
+      adminSections.forEach((section) => {
+        section.setAttribute("data-disabled", canManage ? "false" : "true");
+      });
+    });
+  }
+
+  // ------------------ Llamadas genéricas a la API ------------------
 
   async function callEndpoint(path, options = {}) {
     const base = getBaseUrl();
     if (!base) {
-      setStatus("Por favor ingresa la URL base de la API.", "error");
+      setStatus("Por favor ingresa la URL base de la API (con o sin /dev).", "error");
       return;
     }
 
-    const url = base.replace(/\/+$/, "") + path;
+    const baseClean = base.replace(/\/+$/, "");
+    const fullPath = path.startsWith("/") ? path : "/" + path;
+    const url = baseClean + fullPath;
 
     const headers = {
       "Content-Type": "application/json",
@@ -120,7 +263,7 @@
       const token = getJwtToken();
       if (!token) {
         setStatus(
-          "Este endpoint requiere token JWT. Pega un token en la sección 2.",
+          "Este endpoint requiere token JWT. Pega un token en la sección 2 o inicia sesión desde Cognito.",
           "error"
         );
         setOutput(null);
@@ -156,12 +299,12 @@
       setOutput(json);
     } catch (err) {
       console.error(err);
-      setStatus("Error de red o CORS. Revisa consola.", "error");
+      setStatus("Error de red o CORS. Revisa consola del navegador.", "error");
       setOutput(String(err));
     }
   }
 
-  // --------------- botones sección 2 / 3 ---------------
+  // ------------------ Eventos de botones ------------------
 
   btnOpenCognito.addEventListener("click", () => {
     if (
@@ -184,16 +327,14 @@
     callEndpoint("/audiencias", { method: "GET", auth: true });
   });
 
-  // --------------- Mini UI Audiencias ---------------
-
   btnListAudiencias.addEventListener("click", () => {
     callEndpoint("/audiencias", { method: "GET", auth: true });
   });
 
   btnCreateAudiencia.addEventListener("click", () => {
-    const id = audId.value.trim();
-    const abogado = audAbogado.value.trim();
-    const sala = audSala.value.trim();
+    const id = (audId.value || "").trim();
+    const abogado = (audAbogado.value || "").trim();
+    const sala = (audSala.value || "").trim();
     const estado = audEstado.value;
     const fechaRaw = audFecha.value; // formato local datetime-local
 
@@ -216,7 +357,7 @@
       estado: estado,
     };
 
-    const desc = audDescripcion.value.trim();
+    const desc = (audDescripcion.value || "").trim();
     if (desc) {
       body.descripcion = desc;
     }
@@ -229,7 +370,7 @@
   });
 
   btnCancelAudiencia.addEventListener("click", () => {
-    const id = audCancelId.value.trim();
+    const id = (audCancelId.value || "").trim();
     if (!id) {
       setStatus(
         "Ingresa el id_audiencia a cancelar antes de llamar a DELETE /audiencias.",
@@ -243,4 +384,9 @@
       auth: true,
     });
   });
+
+  // ------------------ Estado inicial ------------------
+
+  // Por defecto, asume rol ABOGADO (se ajustará al decodificar el token real)
+  updateRoleUI("ABOGADO");
 })();

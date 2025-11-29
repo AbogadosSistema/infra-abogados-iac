@@ -1,4 +1,5 @@
 # terraform/modules/cognito/main.tf
+# terraform/modules/cognito/main.tf
 resource "aws_cognito_user_pool" "this" {
   name = "${var.resource_prefix}-${var.env}-users"
 
@@ -10,6 +11,20 @@ resource "aws_cognito_user_pool" "this" {
     require_numbers   = true
     require_symbols   = false
     require_uppercase = true
+  }
+
+  # Atributo personalizado para SECRETARIA:
+  # lista de IDs de abogados asignados (ej: "abogado1,abogado2")
+  schema {
+    name                = "abogados_asignados"   # en el token será custom:abogados_asignados
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
+
+    string_attribute_constraints {
+      min_length = 0
+      max_length = 512
+    }
   }
 
   tags = merge(

@@ -20,7 +20,6 @@ resource "aws_security_group" "jenkins_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   # SSH por si necesitamos entrar a la máquina
   ingress {
     from_port   = 22
