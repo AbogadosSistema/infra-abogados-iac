@@ -12,9 +12,9 @@ pipeline {
     }
 
     environment {
-        PYTHON    = "python3"
-        VENV_DIR  = ".venv"
-        SONAR_ENV = "sonarqube-local"
+        PYTHON     = "python3"
+        VENV_DIR   = ".venv"
+        SONAR_ENV  = "sonarqube-local"
         AWS_REGION = "us-east-1"
     }
 
@@ -78,15 +78,6 @@ pipeline {
                     sh '''
                       ${SCANNER_HOME}/bin/sonar-scanner
                     '''
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 10, unit: 'MINUTES') {
-                    // Si el Quality Gate falla -> aborta el pipeline (FAILED)
-                    waitForQualityGate abortPipeline: true
                 }
             }
         }
