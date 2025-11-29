@@ -12,9 +12,10 @@ pipeline {
     }
 
     environment {
-        PYTHON      = "python3"
-        VENV_DIR    = ".venv"
-        SONAR_ENV   = "sonarqube-local" // nombre del servidor que crearás en Jenkins
+        PYTHON    = "python3"
+        VENV_DIR  = ".venv"
+        SONAR_ENV = "sonarqube-local"
+        AWS_REGION = "us-east-1"
     }
 
     stages {
