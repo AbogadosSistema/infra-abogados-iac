@@ -1,0 +1,102 @@
+pipeline {
+    agent any   // Para tu Jenkins local (agente genérico Linux)
+
+    tools {
+        // Nombre "Node18" debe coincidir con el configurado en Jenkins (NodeJS plugin)
+        nodejs "Node18"
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        PYTHON      = "python3"
+        VENV_DIR    = ".venv"
+        SONAR_ENV   = "sonarqube-local" // nombre del servidor que crearás en Jenkins
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Setup Python env') {
+            steps {
+                sh """
+                  ${PYTHON} -m venv ${VENV_DIR}
+                  . ${VENV_DIR}/bin/activate
+                  pip install --upgrade pip
+                  pip install -r requirements-dev.txt
+                """
+            }
+        }
+
+        stage('Unit tests (pytest)') {
+            steps {
+                sh """
+                  . ${VENV_DIR}/bin/activate
+                  mkdir -p reports
+                  cd lambda/audiencias
+                  pytest --maxfail=1 --disable-warnings -q \
+                    --junitxml=../../reports/pytest-report.xml
+                """
+            }
+            post {
+                always {
+                    junit 'reports/pytest-report.xml'
+                }
+            }
+        }
+
+        stage('Install frontend deps') {
+            steps {
+                dir('frontend') {
+                    sh 'npm install'
+                }
+            }
+        }
+
+        stage('ESLint') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run lint'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            environment {
+                SCANNER_HOME = tool 'SonarScanner' // nombre del scanner en Jenkins
+            }
+            steps {
+                withSonarQubeEnv("${SONAR_ENV}") {
+                    sh '''
+                      ${SCANNER_HOME}/bin/sonar-scanner
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    // Si el Quality Gate falla -> aborta el pipeline (FAILED)
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline CI (tests + lint + sonar) OK."
+        }
+        failure {
+            echo "Pipeline CI FALLÓ en alguna etapa crítica."
+        }
+    }
+}

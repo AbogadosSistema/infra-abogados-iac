@@ -1,0 +1,10 @@
+{
+  "name": "infra-abogados-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "lint": "eslint frontend/*.js"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

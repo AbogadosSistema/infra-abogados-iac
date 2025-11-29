@@ -1,217 +1,238 @@
 # lambda/audiencias/handler.py
-
 import json
 import os
-import decimal
-from datetime import datetime, timezone
+from decimal import Decimal
+from datetime import datetime
+import logging
 
 import boto3
-from boto3.dynamodb.conditions import Attr
+from botocore.exceptions import ClientError
 
+# ----------------- logging base -----------------
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# ----------------- DynamoDB -----------------
 dynamodb = boto3.resource("dynamodb")
-TABLE_NAME = os.environ.get("TABLE_NAME")
-table = dynamodb.Table(TABLE_NAME)
+
+# Aceptar cualquiera de los dos nombres (por Terraform usamos DYNAMODB_TABLE_NAME)
+TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME") or os.environ.get("TABLE_NAME")
+
+if not TABLE_NAME:
+    logger.error(
+        "No se encontró DYNAMODB_TABLE_NAME ni TABLE_NAME en las variables de entorno."
+    )
+    table = None
+else:
+    logger.info(f"Inicializando DynamoDB.Table con nombre: {TABLE_NAME}")
+    table = dynamodb.Table(TABLE_NAME)
 
 
-# ---------------------------
-# Helpers
-# ---------------------------
-
-class DecimalEncoder(json.JSONEncoder):
-    """Permite serializar Decimals de DynamoDB a JSON."""
-
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            if obj % 1 == 0:
-                return int(obj)
-            return float(obj)
-        return super().default(obj)
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Tipo no serializable: {type(obj)}")
 
 
-def _response(status_code: int, body: dict):
+def build_response(status_code, body):
+    """
+    Envuelve la respuesta en el formato esperado por HTTP API (Lambda proxy).
+    Si hubiera un error al serializar el body, lo registramos y devolvemos
+    un 500 sencillo.
+    """
+    try:
+        body_str = json.dumps(body, default=decimal_default)
+    except Exception as e:
+        logger.error("Error serializando body de respuesta: %s", e, exc_info=True)
+        status_code = 500
+        body_str = json.dumps({"message": "Error interno serializando respuesta"})
+
     return {
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
         },
-        "body": json.dumps(body, cls=DecimalEncoder),
+        "body": body_str,
     }
 
 
-def _parse_body(event):
-    body = event.get("body")
-    if not body:
-        return {}
-    if isinstance(body, dict):
-        return body
+def get_claims(event):
+    """Extrae claims de JWT en HTTP API (APIGW v2 + JWT authorizer)."""
+    rc = event.get("requestContext", {})
+    auth = rc.get("authorizer") or {}
+    jwt = auth.get("jwt") or {}
+    claims = jwt.get("claims") or {}
+
     try:
-        return json.loads(body)
-    except json.JSONDecodeError:
-        return {}
+        logger.info("Claims JWT extraídos: %s", json.dumps(claims, default=str))
+    except Exception:
+        logger.warning("No se pudieron loguear los claims JWT.")
+
+    return claims
 
 
-def _get_claims(event):
-    """Extrae claims del JWT (Cognito HTTP API v2)."""
-    return (
-        event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("jwt", {})
-        .get("claims", {})
-        or {}
-    )
-
-
-def _get_groups_from_claims(claims):
-    """Extrae lista de grupos (roles) desde cognito:groups."""
-    raw = claims.get("cognito:groups")
-    if isinstance(raw, list):
-        return raw
-
-    if isinstance(raw, str):
-        # Puede venir como 'ADMINISTRADOR' o como '["ADMINISTRADOR"]'
-        try:
-            if raw.startswith("["):
-                parsed = json.loads(raw)
-                if isinstance(parsed, list):
-                    return parsed
-        except Exception:
-            pass
-        return [raw]
-
-    return []
-
-
-def _get_username_from_claims(claims):
-    return (
-        claims.get("cognito:username")
-        or claims.get("username")
-        or claims.get("email")
-    )
-
-
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat()
-
-
-# ---------------------------
-# Lógica de negocio
-# ---------------------------
-
-def handle_health(event):
-    return _response(
-        200,
-        {
-            "message": "Lambda audiencias OK",
-            "input": {
-                "routeKey": event.get("requestContext", {}).get("routeKey"),
-            },
-        },
-    )
-
-
-def handle_get_audiencias(event, claims):
-    """GET /audiencias
-
-    - ADMINISTRADOR: ve todas (con filtros opcionales).
-    - ABOGADO: solo sus audiencias (abogado_id = username o custom:abogado_id).
-    - SECRETARIA: audiencias de los abogados asignados (custom:abogados_asignados).
+def get_role_context(event):
     """
-    groups = _get_groups_from_claims(claims)
-    username = _get_username_from_claims(claims)
+    Obtiene:
+      - rol: ADMINISTRADOR / SECRETARIA / ABOGADO
+      - username: nombre de usuario Cognito (admin1, abogado1, etc.)
+      - abogados_asignados: lista de abogados asignados a la SECRETARIA
+    El rol se toma de cognito:groups (preferido) y como fallback de custom:rol.
+    """
+    claims = get_claims(event)
 
-    qs = event.get("queryStringParameters") or {}
-    filtro_estado = qs.get("estado")
-    filtro_abogado = qs.get("abogado_id")
+    username = claims.get("cognito:username") or claims.get("username")
 
-    # Construimos un FilterExpression según el rol
-    filter_expr = None
+    # cognito:groups puede venir como lista o como string "ADMINISTRADOR,OTRO"
+    groups_claim = claims.get("cognito:groups")
+    if isinstance(groups_claim, list):
+        groups = groups_claim
+    elif isinstance(groups_claim, str):
+        groups = [g.strip() for g in groups_claim.split(",") if g.strip()]
+    else:
+        groups = []
 
-    if "ADMINISTRADOR" in groups:
-        # Admin ve todo, con filtros opcionales
-        if filtro_abogado:
-            filter_expr = Attr("abogado_id").eq(filtro_abogado)
-        if filtro_estado:
-            expr_estado = Attr("estado").eq(filtro_estado)
-            filter_expr = expr_estado if filter_expr is None else filter_expr & expr_estado
+    role_order = ["ADMINISTRADOR", "SECRETARIA", "ABOGADO"]
+    rol = None
+    for r in role_order:
+        if r in groups:
+            rol = r
+            break
 
-    elif "ABOGADO" in groups:
-        # Abogado solo ve las suyas
-        abogado_id_claim = claims.get("custom:abogado_id") or username
-        filter_expr = Attr("abogado_id").eq(abogado_id_claim)
-        if filtro_estado:
-            filter_expr = filter_expr & Attr("estado").eq(filtro_estado)
+    # Fallback a atributo custom, por si acaso
+    if not rol:
+        custom_rol = claims.get("custom:rol")
+        if custom_rol in role_order:
+            rol = custom_rol
 
-    elif "SECRETARIA" in groups:
-        # Secretaria ve audiencias de abogados asignados.
-        # Se asume un claim custom:abogados_asignados con IDs separados por coma, ej: "abogado1,abogado2"
-        raw_asignados = claims.get("custom:abogados_asignados", "")
+    # Atributo custom de secretaria, ej. "abogado1,abogado2"
+    abogados_asignados_raw = claims.get("custom:abogados_asignados")
+    if isinstance(abogados_asignados_raw, str):
         abogados_asignados = [
-            a.strip() for a in raw_asignados.split(",") if a.strip()
+            a.strip() for a in abogados_asignados_raw.split(",") if a.strip()
         ]
-        if not abogados_asignados:
-            return _response(
-                403,
-                {
-                    "message": "SECRETARIA sin abogados asignados (custom:abogados_asignados vacío).",
-                },
+    else:
+        abogados_asignados = []
+
+    logger.info(
+        "Contexto de rol: rol=%s, username=%s, abogados_asignados=%s",
+        rol,
+        username,
+        abogados_asignados,
+    )
+
+    return rol, username, abogados_asignados
+
+
+# ----------- Handlers de rutas -----------
+
+
+def handle_health(event, context):
+    logger.info("handle_health llamado.")
+    return build_response(200, {"status": "ok"})
+
+
+def handle_get_audiencias(event, context):
+    logger.info("handle_get_audiencias llamado.")
+
+    if table is None:
+        # Error de configuración de Lambda / Terraform
+        return build_response(
+            500,
+            {
+                "message": (
+                    "Tabla DynamoDB no configurada en la Lambda "
+                    "(faltan TABLE_NAME / DYNAMODB_TABLE_NAME)."
+                )
+            },
+        )
+
+    try:
+        rol, username, abogados_asignados = get_role_context(event)
+
+        if not rol:
+            return build_response(
+                403, {"message": "Rol no encontrado para listar audiencias."}
             )
 
-        # Si viene abogado_id en query, filtramos solo por ese dentro de la lista
-        if filtro_abogado and filtro_abogado in abogados_asignados:
-            filter_expr = Attr("abogado_id").eq(filtro_abogado)
+        # Para la demo hacemos scan (está bien por poco volumen)
+        try:
+            data = table.scan()
+        except ClientError as e:
+            logger.error("Error de DynamoDB al hacer scan: %s", e, exc_info=True)
+            code = e.response.get("Error", {}).get("Code")
+            if code == "ResourceNotFoundException":
+                return build_response(
+                    500,
+                    {
+                        "message": (
+                            f"La tabla DynamoDB '{TABLE_NAME}' no existe o "
+                            "no es accesible para esta Lambda."
+                        )
+                    },
+                )
+            return build_response(
+                500, {"message": "Error en DynamoDB al listar audiencias."}
+            )
+
+        items = data.get("Items", []) or []
+
+        if rol == "ADMINISTRADOR":
+            visibles = items
+        elif rol == "ABOGADO":
+            visibles = [it for it in items if it.get("abogado_id") == username]
+        elif rol == "SECRETARIA":
+            asignados = set(abogados_asignados)
+            visibles = [it for it in items if it.get("abogado_id") in asignados]
         else:
-            # Construimos expr abogado_id IN (lista). DynamoDB no tiene IN directo, así que usamos OR.
-            expr = None
-            for a in abogados_asignados:
-                cond = Attr("abogado_id").eq(a)
-                expr = cond if expr is None else expr | cond
-            filter_expr = expr
+            return build_response(
+                403, {"message": "Rol no autorizado para listar audiencias."}
+            )
 
-        if filtro_estado:
-            filter_expr = filter_expr & Attr("estado").eq(filtro_estado)
-
-    else:
-        return _response(
-            403,
-            {"message": "Rol no autorizado para listar audiencias."},
-        )
-
-    scan_kwargs = {}
-    if filter_expr is not None:
-        scan_kwargs["FilterExpression"] = filter_expr
-
-    items = []
-    resp = table.scan(**scan_kwargs)
-    items.extend(resp.get("Items", []))
-    # Si algún día hay paginación:
-    while "LastEvaluatedKey" in resp:
-        resp = table.scan(
-            ExclusiveStartKey=resp["LastEvaluatedKey"], **scan_kwargs
-        )
-        items.extend(resp.get("Items", []))
-
-    return _response(
-        200,
-        {
-            "items": items,
-            "count": len(items),
-        },
-    )
-
-
-def handle_post_audiencia(event, claims):
-    """POST /audiencias: crear audiencia."""
-    body = _parse_body(event)
-
-    required = ["id_audiencia", "abogado_id", "fecha", "sala", "estado"]
-    missing = [f for f in required if not body.get(f)]
-    if missing:
-        return _response(
-            400,
+        return build_response(
+            200,
             {
-                "message": "Campos obligatorios faltantes.",
-                "missing": missing,
+                "rol": rol,
+                "usuario": username,
+                "total": len(visibles),
+                "items": visibles,
             },
+        )
+
+    except Exception as e:
+        logger.error("Error inesperado en handle_get_audiencias: %s", e, exc_info=True)
+        return build_response(
+            500, {"message": "Error interno al listar audiencias."}
+        )
+
+
+def handle_post_audiencia(event, context):
+    logger.info("handle_post_audiencia llamado.")
+
+    rol, username, _ = get_role_context(event)
+
+    if rol not in ("ADMINISTRADOR", "SECRETARIA"):
+        return build_response(
+            403,
+            {
+                "message": "Solo ADMINISTRADOR o SECRETARIA pueden crear audiencias."
+            },
+        )
+
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return build_response(400, {"message": "Body JSON inválido."})
+
+    requeridos = ["id_audiencia", "abogado_id", "fecha", "sala", "estado"]
+    faltan = [f for f in requeridos if f not in body]
+    if faltan:
+        return build_response(
+            400,
+            {"message": "Faltan campos obligatorios: " + ", ".join(faltan)},
         )
 
     item = {
@@ -220,178 +241,114 @@ def handle_post_audiencia(event, claims):
         "fecha": body["fecha"],
         "sala": body["sala"],
         "estado": body["estado"],
-        "created_at": _now_iso(),
+        "creado_por": username,
+        "creado_en": datetime.utcnow().isoformat(),
     }
 
-    # Campos opcionales
-    opcionals = ["secretaria_id", "descripcion", "tipo", "juzgado"]
-    for f in opcionals:
-        if f in body:
-            item[f] = body[f]
+    if "descripcion" in body:
+        item["descripcion"] = body["descripcion"]
 
     try:
-        table.put_item(
-            Item=item,
-            ConditionExpression=Attr("id_audiencia").not_exists(),
+        table.put_item(Item=item)
+    except ClientError as e:
+        logger.error("Error de DynamoDB al crear audiencia: %s", e, exc_info=True)
+        return build_response(
+            500, {"message": "Error en DynamoDB al crear la audiencia."}
         )
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
-        return _response(
-            409,
+
+    return build_response(201, {"message": "Audiencia creada.", "item": item})
+
+
+def handle_delete_audiencia(event, context):
+    logger.info("handle_delete_audiencia llamado.")
+
+    rol, username, _ = get_role_context(event)
+
+    if rol not in ("ADMINISTRADOR", "SECRETARIA"):
+        return build_response(
+            403,
             {
-                "message": "Ya existe una audiencia con ese id_audiencia.",
+                "message": "Solo ADMINISTRADOR o SECRETARIA pueden cancelar audiencias."
             },
         )
 
-    return _response(
-        201,
-        {
-            "message": "Audiencia creada.",
-            "item": item,
-        },
-    )
-
-
-def handle_put_audiencia(event, claims):
-    """PUT /audiencias: actualizar audiencia existente."""
-    body = _parse_body(event)
-    id_audiencia = body.get("id_audiencia")
-
-    if not id_audiencia:
-        return _response(
-            400, {"message": "id_audiencia es obligatorio para actualizar."}
-        )
-
-    # Campos que se pueden actualizar
-    updatable_fields = ["abogado_id", "fecha", "sala", "estado", "descripcion", "tipo", "juzgado"]
-    set_expr_parts = []
-    expr_attr_values = {}
-    for f in updatable_fields:
-        if f in body:
-            set_expr_parts.append(f"{f} = :{f}")
-            expr_attr_values[f":{f}"] = body[f]
-
-    if not set_expr_parts:
-        return _response(
+    params = event.get("queryStringParameters") or {}
+    aud_id = params.get("id_audiencia")
+    if not aud_id:
+        return build_response(
             400,
-            {"message": "No se enviaron campos para actualizar."},
-        )
-
-    # Siempre actualizamos updated_at
-    set_expr_parts.append("updated_at = :updated_at")
-    expr_attr_values[":updated_at"] = _now_iso()
-
-    update_expr = "SET " + ", ".join(set_expr_parts)
-
-    try:
-        resp = table.update_item(
-            Key={"id_audiencia": id_audiencia},
-            UpdateExpression=update_expr,
-            ExpressionAttributeValues=expr_attr_values,
-            ConditionExpression=Attr("id_audiencia").exists(),
-            ReturnValues="ALL_NEW",
-        )
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
-        return _response(
-            404,
-            {"message": "La audiencia no existe."},
-        )
-
-    return _response(
-        200,
-        {
-            "message": "Audiencia actualizada.",
-            "item": resp.get("Attributes", {}),
-        },
-    )
-
-
-def handle_delete_audiencia(event, claims):
-    """DELETE /audiencias: marcar como cancelada (soft delete)."""
-
-    qs = event.get("queryStringParameters") or {}
-    id_audiencia = qs.get("id_audiencia")
-
-    if not id_audiencia:
-        # También permitimos pasarlo en body
-        body = _parse_body(event)
-        id_audiencia = body.get("id_audiencia")
-
-    if not id_audiencia:
-        return _response(
-            400,
-            {
-                "message": "id_audiencia es obligatorio para eliminar/cancelar.",
-            },
+            {"message": "Debes enviar ?id_audiencia=... en la URL."},
         )
 
     try:
-        resp = table.update_item(
-            Key={"id_audiencia": id_audiencia},
-            UpdateExpression="SET estado = :estado, cancelada_en = :cancelada_en",
+        table.update_item(
+            Key={"id_audiencia": aud_id},
+            UpdateExpression=(
+                "SET #estado = :nuevo, cancelado_por = :user, cancelado_en = :fecha"
+            ),
+            ExpressionAttributeNames={"#estado": "estado"},
             ExpressionAttributeValues={
-                ":estado": "CANCELADA",
-                ":cancelada_en": _now_iso(),
+                ":nuevo": "CANCELADA",
+                ":user": username,
+                ":fecha": datetime.utcnow().isoformat(),
             },
-            ConditionExpression=Attr("id_audiencia").exists(),
-            ReturnValues="ALL_NEW",
         )
-    except table.meta.client.exceptions.ConditionalCheckFailedException:
-        return _response(
-            404,
-            {"message": "La audiencia no existe."},
+    except ClientError as e:
+        logger.error("Error de DynamoDB al cancelar audiencia: %s", e, exc_info=True)
+        return build_response(
+            500, {"message": "Error en DynamoDB al cancelar la audiencia."}
         )
 
-    return _response(
-        200,
-        {
-            "message": "Audiencia marcada como CANCELADA.",
-            "item": resp.get("Attributes", {}),
-        },
+    return build_response(
+        200, {"message": f"Audiencia {aud_id} cancelada (soft delete)."}
     )
 
 
-# ---------------------------
-# Handler principal
-# ---------------------------
+# ----------- Router principal -----------
+
 
 def lambda_handler(event, context):
-    """
-    Enruta según routeKey de API Gateway HTTP API v2.
-
-    Rutas:
-      - GET  /health
-      - GET  /audiencias
-      - POST /audiencias
-      - PUT  /audiencias
-      - DELETE /audiencias
-    """
-    route_key = (
-        event.get("requestContext", {})
-        .get("routeKey", "")
-        .upper()
+    # Log mínimo para depurar problemas de routing
+    logger.info(
+        "Evento recibido (resumen): %s",
+        json.dumps(
+            {
+                "routeKey": event.get("routeKey"),
+                "rawPath": event.get("rawPath"),
+                "method": event.get("requestContext", {})
+                .get("http", {})
+                .get("method"),
+                "path": event.get("requestContext", {})
+                .get("http", {})
+                .get("path"),
+            },
+            default=str,
+        ),
     )
 
-    if route_key == "GET /HEALTH":
-        return handle_health(event)
-
-    claims = _get_claims(event)
-
-    if route_key == "GET /AUDIENCIAS":
-        return handle_get_audiencias(event, claims)
-
-    if route_key == "POST /AUDIENCIAS":
-        return handle_post_audiencia(event, claims)
-
-    if route_key == "PUT /AUDIENCIAS":
-        return handle_put_audiencia(event, claims)
-
-    if route_key == "DELETE /AUDIENCIAS":
-        return handle_delete_audiencia(event, claims)
-
-    # Ruta no soportada
-    return _response(
-        404,
-        {
-            "message": f"Ruta no soportada: {route_key}",
-        },
+    route_key = event.get("routeKey", "")
+    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    raw_path = event.get("requestContext", {}).get("http", {}).get("path") or event.get(
+        "rawPath", ""
     )
+
+    if not route_key and method and raw_path:
+        route_key = f"{method} {raw_path}"
+
+    try:
+        if route_key.startswith("GET /health"):
+            return handle_health(event, context)
+
+        if route_key.startswith("GET /audiencias"):
+            return handle_get_audiencias(event, context)
+
+        if route_key.startswith("POST /audiencias"):
+            return handle_post_audiencia(event, context)
+
+        if route_key.startswith("DELETE /audiencias"):
+            return handle_delete_audiencia(event, context)
+
+        return build_response(404, {"message": f"Ruta no soportada: {route_key}"})
+    except Exception as e:
+        logger.error("Error inesperado en lambda_handler: %s", e, exc_info=True)
+        return build_response(500, {"message": "Error interno en la Lambda."})

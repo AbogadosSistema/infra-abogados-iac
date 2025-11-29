@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Infra Abogados – Prueba de API</title>
+  <title>Infra Abogados – Demo de API por rol</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * {
@@ -18,27 +18,28 @@
     }
 
     .card {
-      max-width: 960px;
+      max-width: 1100px;
       margin: 0 auto;
       background: #fff;
       padding: 2rem;
-      border-radius: 10px;
+      border-radius: 12px;
       box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
     }
 
     h1 {
-      font-size: 1.6rem;
+      font-size: 1.7rem;
       margin-top: 0;
       margin-bottom: 0.5rem;
     }
 
     h2 {
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       margin-top: 2rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
     }
 
-    h3, h4 {
+    h3 {
+      font-size: 1.05rem;
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
@@ -78,6 +79,10 @@
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
+    }
+
+    .col-4 {
+      flex: 1 1 230px;
     }
 
     .col-6 {
@@ -160,9 +165,57 @@
       vertical-align: middle;
     }
 
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      margin-right: 0.25rem;
+    }
+
     .only-admin-secretaria {
       border-left: 3px solid #2563eb;
       padding-left: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    /* Estados visuales claros según rol */
+    .only-admin-secretaria[data-disabled="true"] {
+      opacity: 0.3;
+      pointer-events: none;
+      filter: grayscale(1);
+      border-left-color: #9ca3af;
+      background: #f3f4f6;
+    }
+
+    .only-admin-secretaria[data-disabled="false"] {
+      opacity: 1;
+      pointer-events: auto;
+      filter: none;
+    }
+
+    .user-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .user-summary-item span.label {
+      display: block;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: #6b7280;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.15rem;
+    }
+
+    .user-summary-item span.value {
+      font-weight: 600;
+      color: #111827;
+      word-break: break-all;
     }
 
     @media (max-width: 640px) {
@@ -178,140 +231,159 @@
 </head>
 <body>
   <div class="card">
-    <h1>Infra Abogados – Prueba de API</h1>
+    <h1>Infra Abogados – Demo de API por rol</h1>
     <p>
-      Esta página te permite probar la API desplegada en AWS:
-      <strong>healthcheck</strong>, consultas de audiencias y creación/cancelación
-      de audiencias usando <strong>Cognito</strong> para autenticación.
+      Esta página te permite probar el flujo completo:
+      login en <strong>Cognito</strong>, obtención del <strong>JWT</strong> y llamadas
+      a la API de audiencias según el rol:
+      <span class="pill">ADMINISTRADOR: todo</span>
+      <span class="pill">SECRETARIA: CRUD de sus abogados</span>
+      <span class="pill">ABOGADO: consulta / reporte</span>
     </p>
 
     <!-- 1. Endpoint base -->
     <h2>1. Endpoint base de la API</h2>
-    <p>
-      Usa aquí el <strong>api_endpoint</strong> de Terraform, por ejemplo:
-      <code>https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev</code>.
-    </p>
-
-    <label for="apiBaseUrl">Endpoint base</label>
-    <input
-      id="apiBaseUrl"
-      type="text"
-      placeholder="https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev"
-    />
-    <p class="muted">
-      Puedes cambiarlo si más adelante tienes un entorno <code>prod</code>.
-    </p>
-
-    <!-- 2. Token JWT -->
-    <h2>2. Token JWT de Cognito</h2>
-    <p>
-      Inicia sesión en Cognito (o registra un usuario) y pega aquí el
-      <strong>Access Token</strong> o <strong>Id Token</strong> para probar
-      los endpoints protegidos (<code>/audiencias</code>, <code>/reportes</code>, etc.).
-    </p>
-
     <div class="section-box">
-      <label for="jwtTokenInput">Token JWT (Bearer)</label>
-      <textarea
-        id="jwtTokenInput"
-        placeholder="eyJraWQiOiJ..."
-      ></textarea>
-      <p class="muted">
-        El backend espera el header
-        <code>Authorization: Bearer &lt;token&gt;</code>.
+      <p>
+        Usa aquí el <strong>api_endpoint</strong> de Terraform. Para HTTP API con stage
+        <code>dev</code>, normalmente será algo como:
+        <code>https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev</code>.
       </p>
 
-      <button id="btnOpenCognito" class="secondary">
-        Abrir portal de login / registro (Cognito)
-      </button>
-      <span class="muted">
-        &nbsp;(<strong>demo</strong>: configura la URL real del Hosted UI en <code>config.js</code>).
-      </span>
+      <label for="apiBaseUrl">Endpoint base</label>
+      <input
+        id="apiBaseUrl"
+        type="text"
+        placeholder="https://9jw1npwoqk.execute-api.us-east-1.amazonaws.com/dev"
+      />
+      <p class="muted">
+        Puedes cambiarlo si más adelante tienes otros entornos.<br />
+        La UI añadirá automáticamente <code>/health</code>, <code>/audiencias</code>, etc.
+      </p>
     </div>
 
-    <!-- 3. Pruebas rápidas -->
-    <h2>3. Pruebas rápidas</h2>
-    <p>
-      <code>/health</code> es público (sin token). <code>/audiencias</code>
-      requiere JWT de Cognito con el rol adecuado.
-    </p>
+    <!-- 2. Login y JWT -->
+    <h2>2. Login en Cognito y obtención de JWT</h2>
+    <div class="section-box">
+      <div class="row">
+        <div class="col-4">
+          <p class="muted">
+            1) Haz clic en el botón de abajo para abrir el Hosted UI de Cognito.<br />
+            2) Inicia sesión con un usuario configurado en tu User Pool.<br />
+            3) Cognito redirige a este mismo sitio con el token en la URL.
+          </p>
+          <button id="btnOpenCognito" class="secondary">
+            Abrir portal de login / registro (Cognito)
+          </button>
+        </div>
+        <div class="col-6">
+          <label for="jwtTokenInput">Token JWT (Access o Id Token)</label>
+          <textarea
+            id="jwtTokenInput"
+            placeholder="Pega aquí el token si lo copias manualmente..."
+          ></textarea>
+          <p class="muted">
+            El backend espera el header:
+            <code>Authorization: Bearer &lt;token&gt;</code>.<br />
+            Si vienes del callback de Cognito, la página intentará
+            extraer el token automáticamente de la URL.
+          </p>
+        </div>
+      </div>
+    </div>
 
+    <!-- 3. Resumen del usuario autenticado -->
+    <h2>3. Sesión actual (JWT decodificado)</h2>
+    <div class="section-box">
+      <div class="user-summary">
+        <div class="user-summary-item">
+          <span class="label">Usuario (cognito:username)</span>
+          <span class="value" id="currentUser">-</span>
+        </div>
+        <div class="user-summary-item">
+          <span class="label">Rol detectado</span>
+          <span class="value" id="currentRole">-</span>
+        </div>
+        <div class="user-summary-item">
+          <span class="label">Grupos (cognito:groups)</span>
+          <span class="value" id="currentGroups">-</span>
+        </div>
+        <div class="user-summary-item">
+          <span class="label">Abogados asignados (SECRETARIA)</span>
+          <span class="value" id="currentAssignedLawyers">-</span>
+        </div>
+      </div>
+
+      <details style="margin-top:0.75rem;">
+        <summary style="cursor:pointer; font-size:0.85rem;">Ver payload completo del JWT (claims)</summary>
+        <pre id="rawClaims" style="margin-top:0.5rem; font-size:0.8rem;"></pre>
+      </details>
+
+      <p id="roleHint" class="muted" style="margin-top:0.75rem;"></p>
+    </div>
+
+    <!-- 4. Pruebas rápidas -->
+    <h2>4. Pruebas rápidas de conectividad</h2>
     <div class="section-box">
       <button id="btnHealth" class="primary">
-        Probar GET /health
+        Probar GET /health (público)
       </button>
       <button id="btnAudiencias" class="secondary inline">
-        Probar GET /audiencias
+        Probar GET /audiencias (requiere JWT)
       </button>
       <p class="muted">
-        Si el token no es válido o el rol no tiene permiso, el backend devolverá
-        <code>403</code> o <code>401</code>.
+        <strong>/health</strong> no usa autenticación.<br />
+        <strong>/audiencias</strong> requiere un JWT válido; si falta el token o el rol
+        no tiene permiso, verás <code>401</code> o <code>403</code>.
       </p>
     </div>
 
-    <!-- 4. Mini UI – Audiencias -->
-    <h2>4. Mini UI – Audiencias por rol</h2>
-    <p>
-      Selecciona el rol del usuario con el que has iniciado sesión. Esta selección
-      solo afecta a cómo se muestra la interfaz; las restricciones reales se aplican
-      en el backend usando los grupos de Cognito
-      (<code>ADMINISTRADOR</code>, <code>SECRETARIA</code>, <code>ABOGADO</code>).
-    </p>
+    <!-- 5. Operaciones por rol -->
+    <h2>5. Operaciones por rol sobre audiencias</h2>
 
+    <!-- 5.1 Listar audiencias según rol -->
     <div class="section-box">
-      <label for="roleSelector">Rol de demostración</label>
-      <select id="roleSelector">
-        <option value="ABOGADO">ABOGADO</option>
-        <option value="SECRETARIA">SECRETARIA</option>
-        <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-      </select>
-      <p id="roleHint" class="muted"></p>
-    </div>
-
-    <div class="section-box">
-      <h3>4.1. Consultar audiencias visibles</h3>
+      <h3>5.1. Consultar audiencias visibles</h3>
       <p class="muted">
         Según el rol:
         <strong>ADMINISTRADOR</strong> ve todas,
-        <strong>SECRETARIA</strong> ve las de sus abogados asignados,
-        <strong>ABOGADO</strong> solo las suyas.
+        <strong>SECRETARIA</strong> ve las de sus abogados asignados
+        (claim <code>custom:abogados_asignados</code>),
+        <strong>ABOGADO</strong> ve solo las suyas.
       </p>
       <button id="btnListAudiencias" class="primary">
         GET /audiencias
       </button>
     </div>
 
-    <div class="section-box only-admin-secretaria">
+    <!-- 5.2 Crear / cancelar (solo ADMIN / SECRETARIA) -->
+    <div class="section-box only-admin-secretaria" data-disabled="true">
       <h3>
-        4.2. Crear audiencia
+        5.2. Crear audiencia
         <span class="badge">ADMINISTRADOR / SECRETARIA</span>
       </h3>
       <p class="muted">
-        El backend validará permisos. Si iniciaste sesión como ABOGADO,
-        esta operación debería fallar con <code>403</code>.
+        El backend valida permisos con los grupos de Cognito. Si el token pertenece a un
+        ABOGADO, esta operación debe responder <code>403</code>.
       </p>
 
       <div class="row">
         <div class="col-6">
-          <label for="audId">ID audiencia (id_audiencia)</label>
+          <label for="audId">ID audiencia (<code>id_audiencia</code>)</label>
           <input id="audId" type="text" placeholder="A-001" />
         </div>
         <div class="col-6">
-          <label for="audAbogado">Abogado (abogado_id)</label>
+          <label for="audAbogado">Abogado (<code>abogado_id</code>)</label>
           <input id="audAbogado" type="text" placeholder="abogado1" />
         </div>
       </div>
 
       <div class="row">
         <div class="col-6">
-          <label for="audFecha">Fecha y hora (ISO)</label>
-          <input
-            id="audFecha"
-            type="datetime-local"
-            placeholder="2025-12-01T09:00"
-          />
+          <label for="audFecha">Fecha y hora (local)</label>
+          <input id="audFecha" type="datetime-local" />
           <p class="muted">
-            Se enviará como ISO (ej. <code>2025-12-01T09:00:00Z</code>).
+            La UI lo convierte a ISO (ej. <code>2025-12-01T09:00:00Z</code>) antes de enviarlo.
           </p>
         </div>
         <div class="col-6">
@@ -322,7 +394,7 @@
 
       <div class="row">
         <div class="col-6">
-          <label for="audEstado">Estado</label>
+          <label for="audEstado">Estado inicial</label>
           <select id="audEstado">
             <option value="PENDIENTE">PENDIENTE</option>
             <option value="REALIZADA">REALIZADA</option>
@@ -338,28 +410,40 @@
       <button id="btnCreateAudiencia" class="primary">
         POST /audiencias
       </button>
-    </div>
 
-    <div class="section-box only-admin-secretaria">
+      <hr style="margin:1rem 0;" />
+
       <h3>
-        4.3. Cancelar audiencia
+        5.3. Cancelar audiencia (soft delete)
         <span class="badge">ADMINISTRADOR / SECRETARIA</span>
       </h3>
       <p class="muted">
-        Esta operación realiza un <em>soft delete</em> marcando la audiencia como
-        <code>CANCELADA</code>.
+        Marca la audiencia como <code>CANCELADA</code> sin borrarla físicamente.
       </p>
 
       <label for="audCancelId">ID de audiencia a cancelar</label>
       <input id="audCancelId" type="text" placeholder="A-001" />
 
       <button id="btnCancelAudiencia" class="secondary">
-        DELETE /audiencias
+        DELETE /audiencias?id_audiencia=...
       </button>
     </div>
 
-    <!-- 5. Resultado -->
-    <h2>5. Respuesta de la API</h2>
+    <!-- 5.4 Reporte de audiencias para ABOGADO (solo lectura desde esta UI) -->
+    <div class="section-box">
+      <h3>5.4. Reporte del ABOGADO</h3>
+      <p class="muted">
+        Para el rol <strong>ABOGADO</strong>, desde esta página la validación se centra en:
+        <br />• Ver que <strong>GET /audiencias</strong> solo devuelve sus propias audiencias.<br />
+        • Ver que los intentos de <strong>crear</strong> o <strong>cancelar</strong> audiencias
+        responden <code>403</code> (no autorizado).<br />
+        La lógica de reporte detallado (por ejemplo, generar documentos o estadísticas)
+        se implementa en la Lambda de reportes (<code>/reportes</code>).
+      </p>
+    </div>
+
+    <!-- 6. Salida de la API -->
+    <h2>6. Respuesta de la API</h2>
     <div class="status" id="status"></div>
     <div class="output" id="output"></div>
   </div>
