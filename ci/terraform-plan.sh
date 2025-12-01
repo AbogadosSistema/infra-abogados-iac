@@ -4,7 +4,7 @@ set -euo pipefail
 # Primer argumento: entorno (dev, prod, etc.). Por defecto dev.
 ENVIRONMENT="${1:-dev}"
 
-# Segundo argumento (opcional): acción (plan | apply). Por defecto solo plan.
+# Segundo argumento: acción (plan | apply). Por defecto "plan".
 ACTION="${2:-plan}"
 
 # Directorio raíz del repo (sube desde ci/ a la raíz)
@@ -28,22 +28,36 @@ terraform init -input=false
 echo "==== terraform validate ===="
 terraform validate
 
-echo "==== terraform plan ===="
-
+TFVARS_ARG=()
 if [ -f "terraform.tfvars" ]; then
   echo "Usando terraform.tfvars para el entorno ${ENVIRONMENT}"
-  terraform plan -input=false -out=tfplan -var-file="terraform.tfvars"
+  TFVARS_ARG=(-var-file="terraform.tfvars")
 else
   echo "ATENCIÓN: no se encontró terraform.tfvars en ${ENV_DIR}"
-  echo "Ejecutando terraform plan sin var-file (usará defaults/variables de CLI/entorno)..."
-  terraform plan -input=false -out=tfplan
+  echo "Se ejecutará Terraform usando solo variables por defecto / entorno."
 fi
 
-# Si se invoca con 'apply', aplicamos el plan generado
-if [ "${ACTION}" = "apply" ]; then
-  echo "==== terraform apply (usando tfplan) ===="
-  terraform apply -input=false tfplan
-  echo "Terraform apply finalizado correctamente."
-else
-  echo "Solo se ejecutó terraform plan (sin apply)."
-fi
+case "${ACTION}" in
+  plan)
+    echo "==== terraform plan (generando tfplan) ===="
+    terraform plan -input=false -out=tfplan "${TFVARS_ARG[@]}"
+    echo "Plan generado: tfplan"
+    ;;
+
+  apply)
+    if [ -f tfplan ]; then
+      echo "Se encontró tfplan existente. Aplicando ese plan..."
+      terraform apply -input=false tfplan
+    else
+      echo "No existe tfplan. Generando plan rápido antes del apply..."
+      terraform plan -input=false -out=tfplan "${TFVARS_ARG[@]}"
+      terraform apply -input=false tfplan
+    fi
+    echo "Terraform apply finalizado correctamente."
+    ;;
+
+  *)
+    echo "Acción no reconocida: ${ACTION}. Usa 'plan' o 'apply'."
+    exit 1
+    ;;
+esac

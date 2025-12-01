@@ -116,4 +116,10 @@ resource "aws_cloudtrail" "this" {
       Name = "${var.resource_prefix}-${var.env}-cloudtrail"
     }
   )
+
+  # Importante: forzamos que el Trail se cree solo
+  # después de que la bucket policy esté aplicada.
+  depends_on = [
+    aws_s3_bucket_policy.cloudtrail
+  ]
 }
