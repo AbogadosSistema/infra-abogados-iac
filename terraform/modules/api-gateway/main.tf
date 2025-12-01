@@ -35,10 +35,8 @@ resource "aws_apigatewayv2_integration" "reportes" {
   payload_format_version = "2.0"
 }
 
-# Integración opcional para notificaciones
+# Integración para notificaciones (ya no opcional vía count)
 resource "aws_apigatewayv2_integration" "notificaciones" {
-  count = var.notificaciones_lambda_arn != "" ? 1 : 0
-
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
   integration_uri        = var.notificaciones_lambda_arn
@@ -118,13 +116,11 @@ resource "aws_apigatewayv2_route" "reportes_get" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt_auth.id
 }
 
-# Ruta opcional /notificaciones (POST)
+# Ruta /notificaciones (POST)
 resource "aws_apigatewayv2_route" "notificaciones_post" {
-  count = var.notificaciones_lambda_arn != "" ? 1 : 0
-
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /notificaciones"
-  target    = "integrations/${aws_apigatewayv2_integration.notificaciones[0].id}"
+  target    = "integrations/${aws_apigatewayv2_integration.notificaciones.id}"
 
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt_auth.id
@@ -164,8 +160,6 @@ resource "aws_lambda_permission" "apigw_reportes" {
 }
 
 resource "aws_lambda_permission" "apigw_notificaciones" {
-  count = var.notificaciones_lambda_arn != "" ? 1 : 0
-
   statement_id  = "AllowAPIGatewayInvokeNotificaciones"
   action        = "lambda:InvokeFunction"
   function_name = var.notificaciones_lambda_arn
