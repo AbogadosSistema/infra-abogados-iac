@@ -1,5 +1,4 @@
 # terraform/modules/cognito/main.tf
-# terraform/modules/cognito/main.tf
 resource "aws_cognito_user_pool" "this" {
   name = "${var.resource_prefix}-${var.env}-users"
 

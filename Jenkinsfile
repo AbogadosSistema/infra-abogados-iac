@@ -52,19 +52,17 @@ pipeline {
                     sh '''
                       echo "==== Ejecutando Terraform plan para entorno dev ===="
                       chmod +x ci/terraform-plan.sh
-                      ci/terraform-plan.sh dev
+                      ci/terraform-plan.sh dev plan
                     '''
                 }
             }
         }
 
         stage('Terraform Apply (manual, dev)') {
-            when {
-                beforeAgent true
-                expression { return env.BRANCH_NAME == 'develop' }
-            }
             steps {
+                // Pregunta interactiva en Jenkins antes de aplicar
                 input message: '¿Aplicar cambios en infraestructura dev?'
+
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
                     credentialsId: 'aws-terraform'
