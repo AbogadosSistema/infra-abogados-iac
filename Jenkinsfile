@@ -57,29 +57,11 @@ pipeline {
                 }
             }
         }
-
-        stage('Terraform Apply (manual, dev)') {
-            steps {
-                // Pregunta interactiva en Jenkins antes de aplicar
-                input message: '¿Aplicar cambios en infraestructura dev?'
-
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-terraform'
-                ]]) {
-                    sh '''
-                      echo "==== Ejecutando Terraform apply para entorno dev ===="
-                      chmod +x ci/terraform-plan.sh
-                      ci/terraform-plan.sh dev apply
-                    '''
-                }
-            }
-        }
     }
 
     post {
         always {
-            echo "Pipeline completado (Checkout + Checkov + Terraform plan/apply opcional)."
+            echo "Pipeline completado (Checkout + Checkov + Terraform plan dev)."
         }
     }
 }
