@@ -252,7 +252,8 @@ module "observabilidad" {
   ]
 
   # Para alarmas 5xx de la HTTP API
-  api_gateway_api_id = module.api_gateway.api_id
+  api_gateway_api_id     = module.api_gateway.api_id
+  enable_api_5xx_alarm   = true
 }
 
 # ============================

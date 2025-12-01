@@ -1,6 +1,13 @@
 # terraform/modules/observabilidad/main.tf
+
 locals {
   name_prefix = "${var.resource_prefix}-${var.env}"
+}
+
+# Flag para habilitar/deshabilitar la alarma de 5xx en API Gateway
+variable "enable_api_5xx_alarm" {
+  type    = bool
+  default = true
 }
 
 # Tópico SNS para alarmas operacionales (NO es el mismo de recordatorios)
@@ -28,7 +35,7 @@ resource "aws_sns_topic_subscription" "email" {
 # Alarmas de Lambda
 # ============================
 
-# 1) Errores de Lambda (Errors)  -> YA EXISTENTE
+# 1) Errores de Lambda (Errors)
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each = toset(var.lambda_function_names)
 
@@ -93,7 +100,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
 # ============================
 
 resource "aws_cloudwatch_metric_alarm" "api_5xx" {
-  count = var.api_gateway_api_id != "" ? 1 : 0
+  count = var.enable_api_5xx_alarm ? 1 : 0
 
   alarm_name          = "${local.name_prefix}-api-5xx"
   comparison_operator = "GreaterThanOrEqualToThreshold"
